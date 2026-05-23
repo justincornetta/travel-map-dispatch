@@ -14,6 +14,9 @@ const statusColors: Record<StopStatus, string> = {
   upcoming: "#475569",
 };
 
+type LeafletModule = typeof import("leaflet");
+type LeafletMap = import("leaflet").Map;
+
 export default function TravelMap({ stops }: { stops: Stop[] }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [selectedId, setSelectedId] = useState(stops.find((stop) => stop.status === "current")?.id ?? stops[0]?.id);
@@ -23,23 +26,24 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
     if (!mapRef.current || stops.length === 0) return;
 
     let disposed = false;
-    let map: { remove: () => void } | null = null;
+    let map: LeafletMap | null = null;
 
     async function loadMap() {
-      const L = await import("leaflet");
+      const L: LeafletModule = await import("leaflet");
       if (disposed || !mapRef.current) return;
 
-      map = L.map(mapRef.current, {
+      const leafletMap = L.map(mapRef.current, {
         scrollWheelZoom: false,
         zoomControl: true,
       }).setView([stops[0].latitude, stops[0].longitude], 4);
+      map = leafletMap;
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
+      }).addTo(leafletMap);
 
       const path = stops.map((stop) => [stop.latitude, stop.longitude] as [number, number]);
-      L.polyline(path, { color: "#334155", opacity: 0.45, weight: 3 }).addTo(map);
+      L.polyline(path, { color: "#334155", opacity: 0.45, weight: 3 }).addTo(leafletMap);
 
       stops.forEach((stop) => {
         L.circleMarker([stop.latitude, stop.longitude], {
@@ -50,16 +54,16 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
           opacity: 1,
           weight: stop.id === selectedId ? 4 : 3,
         })
-          .addTo(map!)
+          .addTo(leafletMap)
           .bindTooltip(stop.locationLabel, { direction: "top", offset: [0, -8] })
           .bindPopup(`<strong>${stop.title}</strong><br><span>${stop.locationLabel}</span>`)
           .on("click", () => setSelectedId(stop.id));
       });
 
       if (stops.length === 1) {
-        map.setView([stops[0].latitude, stops[0].longitude], 6);
+        leafletMap.setView([stops[0].latitude, stops[0].longitude], 6);
       } else {
-        map.fitBounds(path, { padding: [34, 34] });
+        leafletMap.fitBounds(path, { padding: [34, 34] });
       }
     }
 
