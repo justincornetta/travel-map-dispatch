@@ -17,9 +17,14 @@ const statusColors: Record<StopStatus, string> = {
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
 
-export default function TravelMap({ stops }: { stops: Stop[] }) {
+export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSlug?: string }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
-  const [selectedId, setSelectedId] = useState(stops.find((stop) => stop.status === "current")?.id ?? stops[0]?.id);
+
+  // Initial selection priority: ?focus= param → current → first
+  const focused = focusSlug ? stops.find((s) => s.slug === focusSlug) : undefined;
+  const [selectedId, setSelectedId] = useState(
+    focused?.id ?? stops.find((stop) => stop.status === "current")?.id ?? stops[0]?.id,
+  );
   const selectedStop = stops.find((stop) => stop.id === selectedId) ?? stops[0];
 
   useEffect(() => {
@@ -55,12 +60,15 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
           weight: stop.id === selectedId ? 4 : 3,
         })
           .addTo(leafletMap)
-          .bindTooltip(stop.locationLabel, { direction: "top", offset: [0, -8] })
-          .bindPopup(`<strong>${stop.title}</strong><br><span>${stop.locationLabel}</span>`)
+          .bindTooltip(stop.city, { direction: "top", offset: [0, -8] })
+          .bindPopup(`<strong>${stop.city}</strong><br><span>${stop.country}</span>`)
           .on("click", () => setSelectedId(stop.id));
       });
 
-      if (stops.length === 1) {
+      // If we have a focus target, zoom in tight on it. Otherwise fit all pins.
+      if (focused) {
+        leafletMap.setView([focused.latitude, focused.longitude], 11);
+      } else if (stops.length === 1) {
         leafletMap.setView([stops[0].latitude, stops[0].longitude], 6);
       } else {
         leafletMap.fitBounds(path, { padding: [34, 34] });
@@ -73,7 +81,8 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
       disposed = true;
       map?.remove();
     };
-  }, [selectedId, stops]);
+    // Re-run when the selection or focus changes so we can re-render markers/styles.
+  }, [selectedId, stops, focused]);
 
   return (
     <section className="grid min-h-[640px] gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
@@ -86,6 +95,7 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
           <div className="flex h-full flex-col">
             <div className="relative overflow-hidden rounded-md bg-stone-200">
               {selectedStop.photos[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selectedStop.photos[0].url}
                   alt={selectedStop.photos[0].altText}
@@ -104,24 +114,24 @@ export default function TravelMap({ stops }: { stops: Stop[] }) {
               </span>
             </div>
             <h2 className="mt-4 text-2xl font-semibold leading-tight text-stone-950">
-              {selectedStop.title}
+              {selectedStop.city}
             </h2>
-            <p className="mt-1 text-sm font-medium text-stone-600">{selectedStop.locationLabel}</p>
+            <p className="mt-1 text-sm font-medium text-stone-600">{selectedStop.country}</p>
             <p className="mt-4 text-sm leading-6 text-stone-700">{selectedStop.teaser}</p>
-            {selectedStop.body ? (
+            {selectedStop.posts.length > 0 ? (
               <Link
                 href={`/stops/${selectedStop.slug}`}
                 className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
               >
-                Read dispatch
+                Open feed
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
               </Link>
             ) : (
-              <p className="mt-5 text-sm text-stone-500">This stop is planned, with a dispatch coming later.</p>
+              <p className="mt-5 text-sm text-stone-500">This city is planned. Posts will appear here.</p>
             )}
           </div>
         ) : (
-          <p className="text-sm text-stone-600">No stops have been published yet.</p>
+          <p className="text-sm text-stone-600">No cities have been published yet.</p>
         )}
       </aside>
     </section>

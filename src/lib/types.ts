@@ -2,41 +2,54 @@ export type StopStatus = "visited" | "current" | "upcoming";
 
 export type Photo = {
   id: string;
-  stopId: string;
+  postId: string;
   url: string;
   altText: string;
   displayOrder: number;
 };
 
+export type Post = {
+  id: string;
+  stopId: string;
+  happenedAt: string; // ISO timestamp; drives chronological order + hour-bucket dividers
+  title: string | null;
+  body: string;
+  photos: Photo[];
+};
+
 export type Stop = {
   id: string;
-  title: string;
+  title: string; // mirrors `city` for compatibility with the existing NOT NULL column
   slug: string;
-  locationLabel: string;
+  city: string;
+  country: string;
+  locationLabel: string; // "City, Country" — also stored on the row for back-compat
   latitude: number;
   longitude: number;
   status: StopStatus;
   arrivalDate: string | null;
   departureDate: string | null;
-  displayAfter: string | null;
   teaser: string;
-  body: string;
   isPublished: boolean;
   notificationSent: boolean;
+  posts: Post[];
+  /** Flattened convenience: every photo across this city's posts, ordered by post happened_at then photo display_order. */
   photos: Photo[];
 };
 
 export type StopInput = {
-  title: string;
-  slug?: string;
-  locationLabel: string;
-  latitude: number;
-  longitude: number;
+  /** city slug from the dropdown — drives all derived fields */
+  slug: string;
   status: StopStatus;
   arrivalDate?: string | null;
   departureDate?: string | null;
-  displayAfter?: string | null;
   teaser: string;
+};
+
+export type PostInput = {
+  id?: string;
+  stopId: string;
+  happenedAt: string;
+  title?: string | null;
   body: string;
-  isPublished: boolean;
 };

@@ -1,71 +1,50 @@
 import type { Stop } from "@/lib/types";
 
+// Fallback data used only when Supabase env vars are missing. Real Supabase is
+// configured now, so this is effectively dead code — kept to keep the type
+// surface and dev-without-Supabase path working.
 export const sampleStops: Stop[] = [
   {
     id: "demo-lisbon",
-    title: "First long walk through Lisbon",
-    slug: "lisbon-first-walk",
+    title: "Lisbon",
+    slug: "lisbon",
+    city: "Lisbon",
+    country: "Portugal",
     locationLabel: "Lisbon, Portugal",
     latitude: 38.7223,
     longitude: -9.1393,
     status: "visited",
     arrivalDate: "2026-06-02",
     departureDate: "2026-06-08",
-    displayAfter: null,
     teaser: "Tile-covered streets, late dinners, and a first week of finding the trip's rhythm.",
-    body: "Lisbon was the right first stop: steep streets, bright tiles, good coffee, and a slower pace than the airport version of myself expected. I spent most of the week walking between viewpoints, saving places I wanted to revisit, and letting the trip start without over-scheduling it.",
     isPublished: true,
     notificationSent: true,
+    posts: [
+      {
+        id: "demo-post-lisbon-1",
+        stopId: "demo-lisbon",
+        happenedAt: "2026-06-02T18:00:00Z",
+        title: "First walk",
+        body: "Steep streets, bright tiles, good coffee, and a slower pace than the airport version of myself expected.",
+        photos: [
+          {
+            id: "demo-photo-lisbon",
+            postId: "demo-post-lisbon-1",
+            url: "/demo-lisbon.png",
+            altText: "A warm Lisbon-inspired travel scene",
+            displayOrder: 0,
+          },
+        ],
+      },
+    ],
     photos: [
       {
         id: "demo-photo-lisbon",
-        stopId: "demo-lisbon",
+        postId: "demo-post-lisbon-1",
         url: "/demo-lisbon.png",
         altText: "A warm Lisbon-inspired travel scene",
         displayOrder: 0,
       },
     ],
-  },
-  {
-    id: "demo-marrakesh",
-    title: "Markets, courtyards, and mint tea",
-    slug: "marrakesh-markets",
-    locationLabel: "Marrakesh, Morocco",
-    latitude: 31.6295,
-    longitude: -7.9811,
-    status: "current",
-    arrivalDate: "2026-06-10",
-    departureDate: null,
-    displayAfter: null,
-    teaser: "A city-level check-in from the current stop, with the exact location intentionally kept broad.",
-    body: "This dispatch keeps the current location intentionally city-level. The first impressions are all texture: narrow lanes, shaded courtyards, rooftop breakfasts, and the kind of color that makes every quick photo feel better than it deserves.",
-    isPublished: true,
-    notificationSent: false,
-    photos: [
-      {
-        id: "demo-photo-marrakesh",
-        stopId: "demo-marrakesh",
-        url: "/demo-marrakesh.png",
-        altText: "A warm Marrakesh-inspired courtyard scene",
-        displayOrder: 0,
-      },
-    ],
-  },
-  {
-    id: "demo-athens",
-    title: "Athens",
-    slug: "athens",
-    locationLabel: "Athens, Greece",
-    latitude: 37.9838,
-    longitude: 23.7275,
-    status: "upcoming",
-    arrivalDate: "2026-06-19",
-    departureDate: null,
-    displayAfter: null,
-    teaser: "Next on the route.",
-    body: "",
-    isPublished: true,
-    notificationSent: false,
-    photos: [],
   },
 ];

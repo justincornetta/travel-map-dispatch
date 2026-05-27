@@ -6,8 +6,9 @@ import { JourneyTimeline } from "@/components/JourneyTimeline";
 import { MapSection } from "@/components/MapSection";
 import { getPublicStops } from "@/lib/data";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ focus?: string }> }) {
   const stops = await getPublicStops();
+  const { focus } = await searchParams;
   const current = stops.find((stop) => stop.status === "current");
 
   return (
@@ -18,24 +19,24 @@ export default async function Home() {
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-md border border-stone-300 bg-[#fbfaf6] px-3 py-2 text-sm font-medium text-stone-700">
               <Compass className="h-4 w-4 text-emerald-800" aria-hidden="true" />
-              City-level updates, never exact live tracking
+              City-level updates from the road
             </div>
             <h1 className="max-w-4xl text-4xl font-semibold leading-tight text-stone-950 sm:text-5xl">
-              Follow the trip through each stop, photo, and dispatch.
+              Follow the trip through each city, photo, and dispatch.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-stone-700">
-              Tap around the map to see where the journey has been, where it is now, and
-              what is coming next. Visited stops include highlights and photos from the road.
+              Tap around the map to see where the journey has been, where it is now, and what is
+              coming next. Each city has its own feed of posts and photos.
             </p>
           </div>
           <div className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-4">
             <div className="flex items-start gap-3">
               <LockKeyhole className="mt-1 h-5 w-5 text-amber-700" aria-hidden="true" />
               <div>
-                <p className="font-semibold text-stone-950">Location privacy built in</p>
+                <p className="font-semibold text-stone-950">SMS subscribers</p>
                 <p className="mt-1 text-sm leading-6 text-stone-600">
-                  Current stops stay broad by design. Exact hotels, venues, and live movement
-                  are not shown unless intentionally added later.
+                  Get a short SMS each time a new city goes live — with a link straight into the
+                  feed.
                 </p>
               </div>
             </div>
@@ -49,7 +50,7 @@ export default async function Home() {
           </div>
         </section>
 
-        <MapSection stops={stops} />
+        <MapSection stops={stops} focusSlug={focus} />
         <JourneyTimeline stops={stops} />
 
         {current ? (

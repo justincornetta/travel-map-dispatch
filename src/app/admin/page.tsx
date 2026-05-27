@@ -38,35 +38,52 @@ export default async function AdminPage() {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            New stop
+            New city
           </Link>
         </div>
-        <div className="overflow-hidden rounded-lg border border-stone-300 bg-[#fbfaf6] shadow-sm">
-          {stops.map((stop) => (
-            <Link
-              key={stop.id}
-              href={`/admin/stops/${stop.id}`}
-              className="grid gap-3 border-b border-stone-200 p-4 last:border-b-0 hover:bg-white sm:grid-cols-[1fr_auto]"
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold text-stone-950">{stop.title}</h2>
-                  <StatusBadge status={stop.status} />
+        {stops.length === 0 ? (
+          <div className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-8 text-center shadow-sm">
+            <p className="text-sm text-stone-600">No cities yet. Start with the first one.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-stone-300 bg-[#fbfaf6] shadow-sm">
+            {stops.map((stop) => (
+              <Link
+                key={stop.id}
+                href={`/admin/stops/${stop.id}`}
+                className="grid gap-3 border-b border-stone-200 p-4 last:border-b-0 hover:bg-white sm:grid-cols-[1fr_auto]"
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-semibold text-stone-950">{stop.city}</h2>
+                    <span className="text-sm text-stone-500">{stop.country}</span>
+                    <StatusBadge status={stop.status} />
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-stone-500">
+                    {formatDateRange(stop.arrivalDate, stop.departureDate)} · {stop.posts.length} post
+                    {stop.posts.length === 1 ? "" : "s"}
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-stone-600">{stop.locationLabel}</p>
-                <p className="mt-1 text-xs font-medium text-stone-500">{formatDateRange(stop.arrivalDate, stop.departureDate)}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                <span className={`rounded-md px-2 py-1 ${stop.isPublished ? "bg-emerald-100 text-emerald-900" : "bg-stone-200 text-stone-700"}`}>
-                  {stop.isPublished ? "Published" : "Draft"}
-                </span>
-                <span className={`rounded-md px-2 py-1 ${stop.notificationSent ? "bg-blue-100 text-blue-900" : "bg-stone-200 text-stone-700"}`}>
-                  {stop.notificationSent ? "SMS sent" : "SMS pending"}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <span
+                    className={`rounded-md px-2 py-1 ${
+                      stop.isPublished ? "bg-emerald-100 text-emerald-900" : "bg-stone-200 text-stone-700"
+                    }`}
+                  >
+                    {stop.isPublished ? "Published" : "Draft"}
+                  </span>
+                  <span
+                    className={`rounded-md px-2 py-1 ${
+                      stop.notificationSent ? "bg-blue-100 text-blue-900" : "bg-stone-200 text-stone-700"
+                    }`}
+                  >
+                    {stop.notificationSent ? "SMS sent" : "SMS pending"}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
     </>
   );
