@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Compass, LockKeyhole, MessageSquareText } from "lucide-react";
 
+import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
 import { JourneyTimeline } from "@/components/JourneyTimeline";
 import { MapSection } from "@/components/MapSection";
@@ -61,6 +62,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
           </section>
         ) : null}
       </main>
+      <AppFooter />
     </>
   );
 }
