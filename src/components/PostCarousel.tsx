@@ -15,7 +15,6 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-lg bg-black">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={current.url}
         alt={current.altText}

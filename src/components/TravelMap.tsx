@@ -95,7 +95,6 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
           <div className="flex h-full flex-col">
             <div className="relative overflow-hidden rounded-md bg-stone-200">
               {selectedStop.photos[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selectedStop.photos[0].url}
                   alt={selectedStop.photos[0].altText}

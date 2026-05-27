@@ -386,7 +386,6 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                   <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {post.existingPhotos.map((photo) => (
                       <div key={photo.id} className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={photo.url} alt="" className="h-24 w-full rounded-md object-cover" />
                         <button
                           type="button"
