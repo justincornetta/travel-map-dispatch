@@ -74,37 +74,66 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const body = `${stop.city}: ${stop.teaser} ${getSiteUrl()}/?focus=${stop.slug}`;
 
   let sent = 0;
+  let failed = 0;
+  let lastErrorMessage: string | null = null;
   for (const subscriber of subscribers) {
     try {
-      await client.messages.create({
+      const message = await client.messages.create({
         to: subscriber.phone_number,
         body,
         ...(process.env.TWILIO_MESSAGING_SERVICE_SID
           ? { messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID }
           : { from: process.env.TWILIO_FROM_NUMBER }),
       });
-      sent += 1;
-      await supabase.from("notification_deliveries").insert({
-        stop_id: stop.id,
-        subscriber_id: subscriber.id,
-        status: "sent",
-      });
+
+      // Twilio sometimes accepts the message (no SDK throw) but immediately
+      // marks it undelivered with an errorCode set on the returned message
+      // object. The most common case is error 30034 — A2P 10DLC not yet
+      // registered. Treat any errorCode as a failure so we don't burn the
+      // notification_sent flag on a no-op send.
+      if (message.errorCode) {
+        failed += 1;
+        lastErrorMessage = `Twilio error ${message.errorCode}: ${message.errorMessage ?? "(no message)"}`;
+        await supabase.from("notification_deliveries").insert({
+          stop_id: stop.id,
+          subscriber_id: subscriber.id,
+          status: "failed",
+          error_message: lastErrorMessage,
+        });
+      } else {
+        sent += 1;
+        await supabase.from("notification_deliveries").insert({
+          stop_id: stop.id,
+          subscriber_id: subscriber.id,
+          status: "sent",
+        });
+      }
     } catch (error) {
+      failed += 1;
+      lastErrorMessage = error instanceof Error ? error.message : "Unknown Twilio error";
       await supabase.from("notification_deliveries").insert({
         stop_id: stop.id,
         subscriber_id: subscriber.id,
         status: "failed",
-        error_message: error instanceof Error ? error.message : "Unknown Twilio error",
+        error_message: lastErrorMessage,
       });
     }
   }
 
-  await supabase.from("stops").update({ notification_sent: true }).eq("id", id);
+  // Only mark notification_sent if at least one message actually got through.
+  // If every send failed (e.g. A2P pending → 30034 for all), leave the flag
+  // false so the admin can retry once Twilio routing is fixed/approved.
+  if (sent > 0) {
+    await supabase.from("stops").update({ notification_sent: true }).eq("id", id);
+  }
 
   return NextResponse.json({
     ok: true,
     published: true,
     smsSent: sent,
+    smsFailed: failed,
     smsAttempted: subscribers.length,
+    notificationSent: sent > 0,
+    warning: sent === 0 ? `City published, but no SMS delivered. ${lastErrorMessage ?? ""}`.trim() : undefined,
   });
 }

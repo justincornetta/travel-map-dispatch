@@ -66,13 +66,37 @@ export async function POST(request: Request) {
     });
   }
 
-  await client.messages.create({
-    to: phoneNumber,
-    body: `Confirm Travel Dispatch texts: ${confirmUrl}. Reply STOP to unsubscribe.`,
-    ...(process.env.TWILIO_MESSAGING_SERVICE_SID
-      ? { messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID }
-      : { from: process.env.TWILIO_FROM_NUMBER }),
-  });
+  try {
+    const message = await client.messages.create({
+      to: phoneNumber,
+      body: `Confirm Travel Dispatch texts: ${confirmUrl}. Reply STOP to unsubscribe.`,
+      ...(process.env.TWILIO_MESSAGING_SERVICE_SID
+        ? { messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID }
+        : { from: process.env.TWILIO_FROM_NUMBER }),
+    });
+
+    // Twilio accepts the create call but can mark it undelivered immediately
+    // (e.g. error 30034 = A2P 10DLC not yet registered). Surface that to the
+    // user so they don't sit waiting for a text that never arrives.
+    if (message.errorCode === 30034 || message.errorCode === 30035) {
+      return NextResponse.json({
+        message:
+          "Your number was saved, but our SMS provider is still verifying our account with US carriers. Confirmation texts are blocked for the next few days. Please check back soon — we'll send your confirmation as soon as approval lands.",
+      });
+    }
+    if (message.errorCode) {
+      return NextResponse.json({
+        message: `Your number was saved, but the confirmation text didn't go through (Twilio error ${message.errorCode}). Please try again later.`,
+      });
+    }
+  } catch (error) {
+    return NextResponse.json({
+      message:
+        `Your number was saved, but the confirmation text failed to send (${
+          error instanceof Error ? error.message : "unknown error"
+        }). You can re-submit this form to try again.`,
+    });
+  }
 
   return NextResponse.json({
     message: "Check your phone for a confirmation link before dispatch texts begin.",
