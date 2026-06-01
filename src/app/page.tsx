@@ -3,8 +3,8 @@ import { Compass, LockKeyhole, MessageSquareText } from "lucide-react";
 
 import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
-import { JourneyTimeline } from "@/components/JourneyTimeline";
-import { MapSection } from "@/components/MapSection";
+import { ExploreSection } from "@/components/ExploreSection";
+import { TripStats } from "@/components/TripStats";
 import { getPublicStops } from "@/lib/data";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ focus?: string }> }) {
@@ -43,7 +43,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
             </div>
             <Link
               href="/subscribe"
-              className="mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900"
+              className="mt-4 inline-flex h-10 items-center gap-2 rounded-md bg-emerald-800 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-900"
             >
               <MessageSquareText className="h-4 w-4" aria-hidden="true" />
               Get text updates
@@ -51,8 +51,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
           </div>
         </section>
 
-        <MapSection stops={stops} focusSlug={focus} />
-        <JourneyTimeline stops={stops} />
+        <TripStats stops={stops} />
+        <ExploreSection stops={stops} focusSlug={focus} />
 
         {current ? (
           <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5">

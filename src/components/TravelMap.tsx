@@ -16,24 +16,45 @@ const statusColors: Record<StopStatus, string> = {
 
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
+type LeafletCircleMarker = import("leaflet").CircleMarker;
 
-export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSlug?: string }) {
+export default function TravelMap({
+  stops,
+  focusSlug,
+  selectedId,
+  hoveredId,
+  onSelect,
+  onHover,
+}: {
+  stops: Stop[];
+  focusSlug?: string;
+  selectedId?: string;
+  hoveredId?: string | null;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}) {
   const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<LeafletMap | null>(null);
+  const markersRef = useRef<Map<string, LeafletCircleMarker>>(new Map());
+  const firstStyleRun = useRef(true);
+  // Keep the latest callbacks reachable from the one-time init effect without re-running it.
+  const onSelectRef = useRef(onSelect);
+  const onHoverRef = useRef(onHover);
+  onSelectRef.current = onSelect;
+  onHoverRef.current = onHover;
 
-  // Initial selection priority: ?focus= param → current → first
-  const focused = focusSlug ? stops.find((s) => s.slug === focusSlug) : undefined;
-  const [selectedId, setSelectedId] = useState(
-    focused?.id ?? stops.find((stop) => stop.status === "current")?.id ?? stops[0]?.id,
-  );
-  const selectedStop = stops.find((stop) => stop.id === selectedId) ?? stops[0];
+  const selectedStop =
+    stops.find((stop) => stop.id === selectedId) ?? stops[0];
   const [ready, setReady] = useState(false);
 
+  // Init effect — build the map once per `stops` change. Markers are stored in a
+  // ref so the style effect can restyle them imperatively (no full re-init on hover).
   useEffect(() => {
     if (!mapRef.current || stops.length === 0) return;
 
     let disposed = false;
-    let map: LeafletMap | null = null;
     setReady(false);
+    firstStyleRun.current = true;
 
     async function loadMap() {
       const L: LeafletModule = await import("leaflet");
@@ -43,7 +64,7 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
         scrollWheelZoom: false,
         zoomControl: true,
       }).setView([stops[0].latitude, stops[0].longitude], 4);
-      map = leafletMap;
+      mapInstanceRef.current = leafletMap;
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -52,22 +73,27 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
       const path = stops.map((stop) => [stop.latitude, stop.longitude] as [number, number]);
       L.polyline(path, { color: "#334155", opacity: 0.45, weight: 3 }).addTo(leafletMap);
 
+      const markers = markersRef.current;
+      markers.clear();
       stops.forEach((stop) => {
-        L.circleMarker([stop.latitude, stop.longitude], {
-          radius: stop.id === selectedId ? 12 : 9,
+        const marker = L.circleMarker([stop.latitude, stop.longitude], {
+          radius: 9,
           color: "#ffffff",
           fillColor: statusColors[stop.status],
           fillOpacity: 0.95,
           opacity: 1,
-          weight: stop.id === selectedId ? 4 : 3,
+          weight: 3,
         })
           .addTo(leafletMap)
           .bindTooltip(stop.city, { direction: "top", offset: [0, -8] })
           .bindPopup(`<strong>${stop.city}</strong><br><span>${stop.country}</span>`)
-          .on("click", () => setSelectedId(stop.id));
+          .on("click", () => onSelectRef.current(stop.id))
+          .on("mouseover", () => onHoverRef.current(stop.id))
+          .on("mouseout", () => onHoverRef.current(null));
+        markers.set(stop.id, marker);
       });
 
-      // If we have a focus target, zoom in tight on it. Otherwise fit all pins.
+      const focused = focusSlug ? stops.find((s) => s.slug === focusSlug) : undefined;
       if (focused) {
         leafletMap.setView([focused.latitude, focused.longitude], 11);
       } else if (stops.length === 1) {
@@ -83,10 +109,39 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
 
     return () => {
       disposed = true;
-      map?.remove();
+      markersRef.current.clear();
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
     };
-    // Re-run when the selection or focus changes so we can re-render markers/styles.
-  }, [selectedId, stops, focused]);
+  }, [stops, focusSlug]);
+
+  // Style effect — restyle markers when selection/hover changes, and pan to the
+  // selected stop on user-driven changes (skipping the very first run after init).
+  useEffect(() => {
+    const markers = markersRef.current;
+    if (markers.size === 0) return;
+
+    markers.forEach((marker, id) => {
+      const isSelected = id === selectedId;
+      const isHovered = id === hoveredId;
+      marker.setRadius(isSelected ? 12 : isHovered ? 11 : 9);
+      marker.setStyle({ weight: isSelected ? 4 : isHovered ? 4 : 3 });
+      if (isSelected || isHovered) marker.bringToFront();
+    });
+
+    if (firstStyleRun.current) {
+      firstStyleRun.current = false;
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    const target = stops.find((stop) => stop.id === selectedId);
+    if (map && target) {
+      map.panTo([target.latitude, target.longitude], { animate: true });
+    }
+    // `ready` is included so this re-runs once markers exist after the async map
+    // init — that first run applies the initial selected/hover styling.
+  }, [selectedId, hoveredId, stops, ready]);
 
   return (
     <section className="grid min-h-[640px] gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
@@ -108,6 +163,8 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
                 <img
                   src={selectedStop.photos[0].url}
                   alt={selectedStop.photos[0].altText}
+                  loading="lazy"
+                  decoding="async"
                   className="h-56 w-full object-cover"
                 />
               ) : (
@@ -131,7 +188,7 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
             {selectedStop.posts.length > 0 ? (
               <Link
                 href={`/stops/${selectedStop.slug}`}
-                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
+                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-stone-800"
               >
                 Open feed
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />

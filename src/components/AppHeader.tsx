@@ -17,14 +17,14 @@ export function AppHeader() {
         <nav className="flex flex-wrap items-center gap-2 text-sm font-medium">
           <Link
             href="/subscribe"
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-800 px-4 text-white hover:bg-emerald-900"
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-emerald-800 px-4 text-white transition-colors hover:bg-emerald-900"
           >
             <MessageSquareText className="h-4 w-4" aria-hidden="true" />
             Text updates
           </Link>
           <Link
             href="/admin"
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-stone-300 px-4 text-stone-800 hover:bg-stone-100"
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-stone-300 px-4 text-stone-800 transition-colors hover:bg-stone-100"
           >
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             Admin
