@@ -8,8 +8,10 @@ export async function uploadDirectToStorage(args: {
   stopId: string;
   postId: string;
   file: File;
+  /** Called with 0–100 as the bytes upload. */
+  onProgress?: (percent: number) => void;
 }): Promise<string> {
-  const { stopId, postId, file } = args;
+  const { stopId, postId, file, onProgress } = args;
 
   // 1) Mint a signed upload URL from the server.
   const mint = await fetch("/api/admin/uploads/signed-url", {
@@ -23,16 +25,30 @@ export async function uploadDirectToStorage(args: {
   }
   const { signedUrl, path } = (await mint.json()) as { signedUrl: string; path: string; token: string };
 
-  // 2) PUT the bytes to the signed URL. Supabase Storage accepts a multipart POST too,
-  //    but a raw PUT with the file body is simpler and matches what createSignedUploadUrl returns.
-  const put = await fetch(signedUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
+  // 2) PUT the bytes to the signed URL via XHR so we can report upload progress
+  //    (fetch has no upload-progress events). Supabase Storage accepts a raw PUT
+  //    with the file body, matching what createSignedUploadUrl returns.
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", signedUrl);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve();
+      } else {
+        reject(new Error(`Storage upload failed (${xhr.status} ${xhr.statusText})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Storage upload failed (network error)"));
+    xhr.send(file);
   });
-  if (!put.ok) {
-    throw new Error(`Storage upload failed (${put.status} ${put.statusText})`);
-  }
 
   return path;
 }

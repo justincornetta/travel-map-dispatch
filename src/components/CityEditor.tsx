@@ -1,14 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Send, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ImagePlus,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { CITY_OPTIONS } from "@/lib/cities";
+import { compressImage, readPhotoTakenAt } from "@/lib/image";
 import type { Stop, StopStatus } from "@/lib/types";
 import { uploadDirectToStorage } from "@/lib/upload";
 
 const STATUSES: StopStatus[] = ["upcoming", "current", "visited"];
+
+type FileStatus = "queued" | "uploading" | "done" | "error";
+
+type QueuedFile = {
+  /** Stable local key for React. */
+  key: string;
+  file: File;
+  /** Object URL for the thumbnail preview. Revoked on remove/unmount. */
+  previewUrl: string;
+  status: FileStatus;
+  /** 0–100 upload progress. */
+  progress: number;
+  error?: string;
+};
 
 type PostDraft = {
   /** Server post id once saved; undefined for never-saved drafts. */
@@ -20,7 +45,9 @@ type PostDraft = {
   body: string;
   existingPhotos: { id: string; url: string }[];
   /** New files queued for upload on next save. */
-  newFiles: File[];
+  queued: QueuedFile[];
+  /** True once the user (or a saved post) set the time; suppresses EXIF auto-fill. */
+  timeEdited: boolean;
 };
 
 function nowLocalDatetime() {
@@ -61,20 +88,191 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       title: p.title ?? "",
       body: p.body,
       existingPhotos: p.photos.map((ph) => ({ id: ph.id, url: ph.url })),
-      newFiles: [],
+      queued: [],
+      timeEdited: true,
     })),
   );
 
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<{ kind: "info" | "error" | "success"; text: string } | null>(null);
 
   const isExisting = Boolean(stop?.id);
   const canPublish = isExisting && stop?.isPublished === false && !stop?.notificationSent;
   const alreadyPublished = isExisting && stop?.isPublished === true;
 
+  // localStorage autosave is scoped to brand-new cities, where there is no
+  // server copy and an accidental navigation would lose everything. Existing
+  // cities are already persisted server-side, so the beforeunload guard alone
+  // covers them (and avoids clobbering server data with a stale local draft).
+  const autosaveKey = stop?.id ? null : "cityeditor:new";
+
+  const failedCount = posts.reduce(
+    (n, p) => n + p.queued.filter((q) => q.status === "error").length,
+    0,
+  );
+
+  // --- Restore an unsaved draft (new cities only) on mount ---------------
+  useEffect(() => {
+    if (!autosaveKey) return;
+    try {
+      const raw = localStorage.getItem(autosaveKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        citySlug?: string;
+        status?: StopStatus;
+        arrivalDate?: string;
+        departureDate?: string;
+        teaser?: string;
+        posts?: { key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
+      };
+      setCitySlug(saved.citySlug ?? "");
+      setStatus(saved.status ?? "upcoming");
+      setArrivalDate(saved.arrivalDate ?? "");
+      setDepartureDate(saved.departureDate ?? "");
+      setTeaser(saved.teaser ?? "");
+      if (Array.isArray(saved.posts) && saved.posts.length > 0) {
+        setPosts(
+          saved.posts.map((p) => ({
+            key: p.key ?? makeKey(),
+            happenedAt: p.happenedAt ?? nowLocalDatetime(),
+            title: p.title ?? "",
+            body: p.body ?? "",
+            existingPhotos: [],
+            queued: [],
+            timeEdited: p.timeEdited ?? false,
+          })),
+        );
+      }
+      const hasContent =
+        saved.citySlug || saved.teaser || (saved.posts && saved.posts.length > 0);
+      if (hasContent) {
+        setMessage({ kind: "info", text: "Restored an unsaved draft from this browser. Photos need to be re-added." });
+      }
+    } catch {
+      /* corrupt blob — ignore */
+    }
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- Persist the draft text as it changes (new cities only) ------------
+  useEffect(() => {
+    if (!autosaveKey) return;
+    try {
+      localStorage.setItem(
+        autosaveKey,
+        JSON.stringify({
+          citySlug,
+          status,
+          arrivalDate,
+          departureDate,
+          teaser,
+          posts: posts.map((p) => ({
+            key: p.key,
+            happenedAt: p.happenedAt,
+            title: p.title,
+            body: p.body,
+            timeEdited: p.timeEdited,
+          })),
+        }),
+      );
+    } catch {
+      /* quota / private mode — non-fatal */
+    }
+  }, [autosaveKey, citySlug, status, arrivalDate, departureDate, teaser, posts]);
+
+  // --- Dirty tracking (skip the initial render) --------------------------
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    setDirty(true);
+  }, [citySlug, status, arrivalDate, departureDate, teaser, posts]);
+
+  // --- Warn before leaving with unsaved changes --------------------------
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  // --- Revoke preview object URLs on unmount -----------------------------
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  useEffect(
+    () => () => {
+      postsRef.current.forEach((p) => p.queued.forEach((q) => URL.revokeObjectURL(q.previewUrl)));
+    },
+    [],
+  );
+
   function updatePost(key: string, patch: Partial<PostDraft>) {
     setPosts((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  }
+
+  function setFile(postKey: string, fileKey: string, patch: Partial<QueuedFile>) {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.key === postKey
+          ? { ...p, queued: p.queued.map((q) => (q.key === fileKey ? { ...q, ...patch } : q)) }
+          : p,
+      ),
+    );
+  }
+
+  async function addFiles(post: PostDraft, fileList: FileList | File[] | null) {
+    const incoming = Array.from(fileList ?? []).filter(
+      (f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name),
+    );
+    if (incoming.length === 0) return;
+
+    // Append (don't replace), de-duping against what's already queued.
+    const seen = new Set(post.queued.map((q) => `${q.file.name}:${q.file.size}`));
+    const fresh = incoming.filter((f) => !seen.has(`${f.name}:${f.size}`));
+    if (fresh.length === 0) return;
+
+    const queued: QueuedFile[] = fresh.map((file) => ({
+      key: makeKey(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      status: "queued",
+      progress: 0,
+    }));
+    setPosts((prev) =>
+      prev.map((p) => (p.key === post.key ? { ...p, queued: [...p.queued, ...queued] } : p)),
+    );
+
+    // Auto-fill "when did this happen" from the earliest photo's EXIF, unless
+    // the user already set a time for this post.
+    if (!post.timeEdited) {
+      const dates = (await Promise.all(fresh.map((f) => readPhotoTakenAt(f)))).filter(
+        (d): d is Date => d instanceof Date,
+      );
+      if (dates.length > 0) {
+        const earliest = new Date(Math.min(...dates.map((d) => d.getTime())));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.key === post.key && !p.timeEdited
+              ? { ...p, happenedAt: toLocalDatetime(earliest.toISOString()) }
+              : p,
+          ),
+        );
+      }
+    }
+  }
+
+  function removeFile(post: PostDraft, fileKey: string) {
+    const target = post.queued.find((q) => q.key === fileKey);
+    if (target) URL.revokeObjectURL(target.previewUrl);
+    updatePost(post.key, { queued: post.queued.filter((q) => q.key !== fileKey) });
   }
 
   function addPost() {
@@ -86,7 +284,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         title: "",
         body: "",
         existingPhotos: [],
-        newFiles: [],
+        queued: [],
+        timeEdited: false,
       },
     ]);
   }
@@ -102,6 +301,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         return;
       }
     }
+    post.queued.forEach((q) => URL.revokeObjectURL(q.previewUrl));
     setPosts((prev) => prev.filter((p) => p.key !== post.key));
   }
 
@@ -127,6 +327,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     }
 
     setSaving(true);
+    let anyFailed = false;
     try {
       // 1) Upsert the city (stop) row
       const cityRes = await fetch("/api/admin/stops", {
@@ -147,7 +348,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       }
       const cityData = (await cityRes.json()) as { id: string; slug: string };
 
-      // 2) For each post: upsert, then upload new photos, then register them
+      // 2) For each post: upsert, then upload pending photos, then register them.
       for (const post of posts) {
         const postRes = await fetch("/api/admin/posts", {
           method: "POST",
@@ -165,31 +366,73 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           throw new Error(`Post save failed: ${err.error}`);
         }
         const postData = (await postRes.json()) as { id: string };
+        // Persist the server id so a retry reuses the same post.
+        if (post.id !== postData.id) updatePost(post.key, { id: postData.id });
 
-        if (post.newFiles.length > 0) {
-          const paths: { storage_path: string; alt_text?: string }[] = [];
-          for (const file of post.newFiles) {
+        // Upload everything not already stored (covers first save + retry).
+        const pending = post.queued.filter((q) => q.status !== "done");
+        const uploaded: { fileKey: string; storage_path: string }[] = [];
+        for (const q of pending) {
+          try {
+            setFile(post.key, q.key, { status: "uploading", progress: 0, error: undefined });
+            const compressed = await compressImage(q.file);
             const path = await uploadDirectToStorage({
               stopId: cityData.id,
               postId: postData.id,
-              file,
+              file: compressed,
+              onProgress: (percent) => setFile(post.key, q.key, { progress: percent }),
             });
-            paths.push({ storage_path: path });
+            uploaded.push({ fileKey: q.key, storage_path: path });
+          } catch (e) {
+            anyFailed = true;
+            setFile(post.key, q.key, {
+              status: "error",
+              error: e instanceof Error ? e.message : "Upload failed",
+            });
           }
+        }
+
+        if (uploaded.length > 0) {
           const regRes = await fetch("/api/admin/photos", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ post_id: postData.id, photos: paths }),
+            body: JSON.stringify({
+              post_id: postData.id,
+              photos: uploaded.map((u) => ({ storage_path: u.storage_path })),
+            }),
           });
           if (!regRes.ok) {
+            anyFailed = true;
             const err = await regRes.json().catch(() => ({ error: regRes.statusText }));
-            throw new Error(`Photo register failed: ${err.error}`);
+            for (const u of uploaded) {
+              setFile(post.key, u.fileKey, { status: "error", error: `Register failed: ${err.error}` });
+            }
+          } else {
+            for (const u of uploaded) {
+              setFile(post.key, u.fileKey, { status: "done", progress: 100 });
+            }
           }
         }
       }
 
+      if (anyFailed) {
+        setMessage({
+          kind: "error",
+          text: "Saved, but some photos didn't upload. Use “Retry failed uploads” below.",
+        });
+        return;
+      }
+
+      setDirty(false);
+      if (autosaveKey) {
+        try {
+          localStorage.removeItem(autosaveKey);
+        } catch {
+          /* ignore */
+        }
+      }
       setMessage({ kind: "success", text: "Saved." });
-      // Navigate to the city's edit page so further edits land on the persistent id
+      // Navigate to the city's edit page so further edits land on the persistent id.
       if (!stop?.id) {
         router.push(`/admin/stops/${cityData.id}`);
       } else {
@@ -353,7 +596,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                   <input
                     type="datetime-local"
                     value={post.happenedAt}
-                    onChange={(e) => updatePost(post.key, { happenedAt: e.target.value })}
+                    onChange={(e) => updatePost(post.key, { happenedAt: e.target.value, timeEdited: true })}
                     className="mt-2 h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2"
                   />
                 </label>
@@ -386,6 +629,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                   <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {post.existingPhotos.map((photo) => (
                       <div key={photo.id} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={photo.url} alt="" className="h-24 w-full rounded-md object-cover" />
                         <button
                           type="button"
@@ -401,26 +645,13 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                 </div>
               ) : null}
 
-              {/* New file picker */}
-              <label className="mt-4 block text-sm font-semibold text-stone-800">
-                Add photos
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) =>
-                    updatePost(post.key, {
-                      newFiles: Array.from(e.target.files ?? []),
-                    })
-                  }
-                  className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm"
-                />
-                {post.newFiles.length > 0 ? (
-                  <span className="mt-1 block text-xs font-normal text-stone-500">
-                    {post.newFiles.length} file{post.newFiles.length === 1 ? "" : "s"} queued — saved on next save.
-                  </span>
-                ) : null}
-              </label>
+              {/* New photo uploader */}
+              <PhotoUploader
+                queued={post.queued}
+                disabled={saving}
+                onAdd={(files) => addFiles(post, files)}
+                onRemove={(fileKey) => removeFile(post, fileKey)}
+              />
             </div>
           ))}
         </div>
@@ -435,6 +666,16 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
             Save draft
           </button>
+          {failedCount > 0 ? (
+            <button
+              type="button"
+              onClick={saveAll}
+              disabled={saving || publishing}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-amber-400 bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" aria-hidden /> Retry failed uploads ({failedCount})
+            </button>
+          ) : null}
           {isExisting ? (
             <button
               type="button"
@@ -487,6 +728,122 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           </p>
         ) : null}
       </aside>
+    </div>
+  );
+}
+
+function PhotoUploader({
+  queued,
+  disabled,
+  onAdd,
+  onRemove,
+}: {
+  queued: QueuedFile[];
+  disabled: boolean;
+  onAdd: (files: FileList | File[] | null) => void;
+  onRemove: (fileKey: string) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm font-semibold text-stone-800">Add photos</p>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          onAdd(e.dataTransfer.files);
+        }}
+        className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
+          dragging ? "border-emerald-600 bg-emerald-50" : "border-stone-300 bg-stone-50 hover:bg-stone-100"
+        }`}
+      >
+        <ImagePlus className="h-6 w-6 text-stone-400" aria-hidden />
+        <span className="mt-1 text-sm font-medium text-stone-600">Drag photos here, or tap to choose</span>
+        <span className="text-xs text-stone-400">
+          Multiple selection supported · iOS Photos & HEIC welcome
+        </span>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*,.heic,.heif"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            onAdd(e.target.files);
+            // Reset so re-picking the same file still fires onChange.
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {queued.length > 0 ? (
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {queued.map((q) => (
+            <div
+              key={q.key}
+              className={`relative overflow-hidden rounded-md ring-1 ${
+                q.status === "error" ? "ring-2 ring-rose-500" : "ring-stone-200"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
+
+              {/* Uploading overlay + progress bar */}
+              {q.status === "uploading" ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-end bg-stone-950/40">
+                  <span className="mb-1 text-xs font-semibold text-white">{q.progress}%</span>
+                  <div className="h-1 w-full bg-white/30">
+                    <div className="h-full bg-emerald-400 transition-all" style={{ width: `${q.progress}%` }} />
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Done check */}
+              {q.status === "done" ? (
+                <span className="absolute left-1 top-1 rounded-full bg-emerald-600 p-0.5 text-white shadow">
+                  <Check className="h-3 w-3" aria-hidden />
+                </span>
+              ) : null}
+
+              {/* Error badge */}
+              {q.status === "error" ? (
+                <span
+                  className="absolute left-1 top-1 inline-flex items-center gap-1 rounded bg-rose-600 px-1 py-0.5 text-[10px] font-semibold text-white shadow"
+                  title={q.error}
+                >
+                  <AlertTriangle className="h-3 w-3" aria-hidden /> Failed
+                </span>
+              ) : null}
+
+              {/* Remove (hidden while uploading) */}
+              {q.status !== "uploading" ? (
+                <button
+                  type="button"
+                  onClick={() => onRemove(q.key)}
+                  disabled={disabled}
+                  className="absolute -right-2 -top-2 rounded-full bg-stone-950 p-1 text-white shadow disabled:opacity-50"
+                  aria-label="Remove photo"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
