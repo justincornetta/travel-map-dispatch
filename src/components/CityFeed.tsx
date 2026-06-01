@@ -2,12 +2,14 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { NotebookPen, Share2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, NotebookPen, Share2, X } from "lucide-react";
 
 import { PostCarousel } from "@/components/PostCarousel";
 import type { Stop, Post } from "@/lib/types";
 
 type Item = { kind: "post"; post: Post } | { kind: "divider"; hour: number };
+
+type NeighborLink = { slug: string; city: string } | null;
 
 // Format an hour (0–23) as a 222-style label: "12 AM", "2 AM", "12 PM", "9 PM".
 function hourLabel(hour: number) {
@@ -30,7 +32,15 @@ function isoToHM(iso: string) {
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-export function CityFeed({ stop }: { stop: Stop }) {
+export function CityFeed({
+  stop,
+  prev = null,
+  next = null,
+}: {
+  stop: Stop;
+  prev?: NeighborLink;
+  next?: NeighborLink;
+}) {
   // Posts are already sorted chronologically by mapStop in data.ts.
   // Interleave hour-bucket dividers between adjacent posts whose hour differs.
   const items = useMemo<Item[]>(() => {
@@ -130,6 +140,37 @@ export function CityFeed({ stop }: { stop: Stop }) {
             </article>
           ),
         )}
+
+        {prev || next ? (
+          <nav className="mt-10 grid grid-cols-2 gap-3 border-t border-white/10 pt-6">
+            {prev ? (
+              <Link
+                href={`/stops/${prev.slug}`}
+                className="group flex flex-col gap-1 rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10"
+              >
+                <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-stone-500">
+                  <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" /> Previous
+                </span>
+                <span className="truncate text-sm font-semibold text-stone-100">{prev.city}</span>
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link
+                href={`/stops/${next.slug}`}
+                className="group flex flex-col items-end gap-1 rounded-lg border border-white/10 bg-white/5 p-4 text-right transition-colors hover:bg-white/10"
+              >
+                <span className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-stone-500">
+                  Next <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+                <span className="truncate text-sm font-semibold text-stone-100">{next.city}</span>
+              </Link>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </main>
 
       {/* Sticky footer */}

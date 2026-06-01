@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
+import { getSiteUrl } from "@/lib/env";
 
 // Body / UI typeface. Exposed as the --font-inter CSS variable.
 const inter = Inter({
@@ -16,9 +17,28 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
+const description =
+  "Follow the trip through an interactive map, photos, and short dispatches.";
+
 export const metadata: Metadata = {
-  title: "Travel Dispatch",
-  description: "Follow the trip through an interactive map, photos, and short dispatches.",
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: "Travel Dispatch",
+    template: "%s · Travel Dispatch",
+  },
+  description,
+  openGraph: {
+    title: "Travel Dispatch",
+    description,
+    siteName: "Travel Dispatch",
+    type: "website",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Travel Dispatch",
+    description,
+  },
 };
 
 export default function RootLayout({
