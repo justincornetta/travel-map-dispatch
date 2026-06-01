@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ImageOff, Loader2, MapPinned } from "lucide-react";
 
 import type { Stop, StopStatus } from "@/lib/types";
 import { formatDateRange } from "@/lib/utils";
@@ -26,12 +26,14 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
     focused?.id ?? stops.find((stop) => stop.status === "current")?.id ?? stops[0]?.id,
   );
   const selectedStop = stops.find((stop) => stop.id === selectedId) ?? stops[0];
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current || stops.length === 0) return;
 
     let disposed = false;
     let map: LeafletMap | null = null;
+    setReady(false);
 
     async function loadMap() {
       const L: LeafletModule = await import("leaflet");
@@ -73,6 +75,8 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
       } else {
         leafletMap.fitBounds(path, { padding: [34, 34] });
       }
+
+      if (!disposed) setReady(true);
     }
 
     loadMap();
@@ -86,8 +90,14 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
 
   return (
     <section className="grid min-h-[640px] gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
-      <div className="map-panel overflow-hidden rounded-lg border border-stone-300 bg-white shadow-sm">
+      <div className="map-panel relative overflow-hidden rounded-lg border border-stone-300 bg-white shadow-sm">
         <div ref={mapRef} className="h-[440px] w-full lg:h-full" />
+        {!ready ? (
+          <div className="absolute inset-0 z-[500] flex animate-pulse items-center justify-center gap-2 bg-[#d9dfd6] text-stone-600">
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+            <span className="text-sm font-medium">Loading map…</span>
+          </div>
+        ) : null}
       </div>
 
       <aside className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-4 shadow-sm">
@@ -101,8 +111,9 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
                   className="h-56 w-full object-cover"
                 />
               ) : (
-                <div className="flex h-56 items-center justify-center bg-stone-200 text-sm text-stone-600">
-                  Photos coming soon
+                <div className="flex h-56 flex-col items-center justify-center gap-2 bg-stone-200 text-stone-500">
+                  <ImageOff className="h-7 w-7" aria-hidden="true" />
+                  <span className="text-xs font-medium">Photos coming soon</span>
                 </div>
               )}
             </div>
@@ -130,7 +141,13 @@ export default function TravelMap({ stops, focusSlug }: { stops: Stop[]; focusSl
             )}
           </div>
         ) : (
-          <p className="text-sm text-stone-600">No cities have been published yet.</p>
+          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-2 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-200 text-stone-500">
+              <MapPinned className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <p className="text-sm font-medium text-stone-600">No cities published yet.</p>
+            <p className="text-xs text-stone-500">The map fills in as the trip unfolds.</p>
+          </div>
         )}
       </aside>
     </section>

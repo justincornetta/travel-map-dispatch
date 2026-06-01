@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { Share2, X } from "lucide-react";
+import { NotebookPen, Share2, X } from "lucide-react";
 
 import { PostCarousel } from "@/components/PostCarousel";
 import type { Stop, Post } from "@/lib/types";
@@ -86,7 +86,13 @@ export function CityFeed({ stop }: { stop: Stop }) {
       {/* Feed */}
       <main className="mx-auto max-w-2xl px-4 pb-32 pt-4">
         {stop.posts.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-stone-500">No posts yet.</p>
+          <div className="mt-16 flex flex-col items-center text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 text-stone-400">
+              <NotebookPen className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <p className="mt-4 text-sm font-medium text-stone-300">No posts from this city yet.</p>
+            <p className="mt-1 text-xs text-stone-500">Check back soon — dispatches land here as they happen.</p>
+          </div>
         ) : null}
 
         {items.map((item, idx) =>
@@ -99,14 +105,14 @@ export function CityFeed({ stop }: { stop: Stop }) {
               <div className="h-px flex-1 bg-white/15" />
             </div>
           ) : (
-            <article key={item.post.id} className="relative mb-8">
-              {/* Tiny side timestamp, rotated */}
-              <span
-                className="absolute -left-2 top-2 origin-top-left -rotate-90 whitespace-nowrap text-[10px] font-mono text-stone-500"
-                aria-hidden="true"
+            <article key={item.post.id} className="mb-8">
+              {/* Inline timestamp above the post */}
+              <time
+                dateTime={item.post.happenedAt}
+                className="mb-1.5 block text-[11px] font-mono uppercase tracking-wide text-stone-500"
               >
                 {isoToHM(item.post.happenedAt)}
-              </span>
+              </time>
 
               {item.post.title ? (
                 <h2 className="mb-2 text-base font-semibold text-stone-100">{item.post.title}</h2>
