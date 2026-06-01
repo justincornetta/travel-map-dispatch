@@ -154,7 +154,6 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       /* corrupt blob — ignore */
     }
     // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Persist the draft text as it changes (new cities only) ------------
@@ -629,7 +628,6 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                   <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {post.existingPhotos.map((photo) => (
                       <div key={photo.id} className="relative">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={photo.url} alt="" className="h-24 w-full rounded-md object-cover" />
                         <button
                           type="button"
@@ -798,7 +796,6 @@ function PhotoUploader({
                 q.status === "error" ? "ring-2 ring-rose-500" : "ring-stone-200"
               }`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
 
               {/* Uploading overlay + progress bar */}
