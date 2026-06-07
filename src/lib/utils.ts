@@ -8,19 +8,29 @@ export function slugify(value: string) {
 }
 
 export function formatDateRange(start: string | null, end: string | null) {
-  if (!start && !end) return "Dates TBD";
-
   const formatter = new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 
-  const format = (value: string) => formatter.format(new Date(`${value}T12:00:00`));
+  // Guard against malformed/out-of-range dates (e.g. a mistyped year like
+  // "62026-06-20"). Intl.DateTimeFormat.format throws "RangeError: Invalid
+  // time value" on an Invalid Date, which would crash the whole page.
+  const format = (value: string | null): string | null => {
+    if (!value) return null;
+    const d = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return formatter.format(d);
+  };
 
-  if (start && end) return `${format(start)} - ${format(end)}`;
-  if (start) return `Arrived ${format(start)}`;
-  return `Until ${format(end as string)}`;
+  const startLabel = format(start);
+  const endLabel = format(end);
+
+  if (startLabel && endLabel) return `${startLabel} - ${endLabel}`;
+  if (startLabel) return `Arrived ${startLabel}`;
+  if (endLabel) return `Until ${endLabel}`;
+  return "Dates TBD";
 }
 
 export function statusLabel(status: string) {
