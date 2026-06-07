@@ -18,6 +18,7 @@ import { CITY_OPTIONS } from "@/lib/cities";
 import { compressImage, readPhotoTakenAt } from "@/lib/image";
 import type { Stop, StopStatus } from "@/lib/types";
 import { uploadDirectToStorage } from "@/lib/upload";
+import { isValidDateInput, MAX_TRIP_DATE, MIN_TRIP_DATE } from "@/lib/utils";
 
 const STATUSES: StopStatus[] = ["upcoming", "current", "visited"];
 
@@ -324,6 +325,18 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       setMessage({ kind: "error", text: "Add an SMS teaser (1–280 chars)." });
       return;
     }
+    if (!isValidDateInput(arrivalDate)) {
+      setMessage({ kind: "error", text: "Arrival date looks invalid — check the year (e.g. 2026)." });
+      return;
+    }
+    if (!isValidDateInput(departureDate)) {
+      setMessage({ kind: "error", text: "Departure date looks invalid — check the year (e.g. 2026)." });
+      return;
+    }
+    if (arrivalDate && departureDate && arrivalDate > departureDate) {
+      setMessage({ kind: "error", text: "Arrival date is after the departure date." });
+      return;
+    }
 
     setSaving(true);
     let anyFailed = false;
@@ -533,6 +546,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             <input
               type="date"
               value={arrivalDate ?? ""}
+              min={MIN_TRIP_DATE}
+              max={MAX_TRIP_DATE}
               onChange={(e) => setArrivalDate(e.target.value)}
               className="mt-2 h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2"
             />
@@ -542,6 +557,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             <input
               type="date"
               value={departureDate ?? ""}
+              min={MIN_TRIP_DATE}
+              max={MAX_TRIP_DATE}
               onChange={(e) => setDepartureDate(e.target.value)}
               className="mt-2 h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2"
             />

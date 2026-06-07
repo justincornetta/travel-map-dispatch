@@ -4,16 +4,27 @@ import { z } from "zod";
 import { requireAdminApi } from "@/lib/auth";
 import { getCityBySlug } from "@/lib/cities";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { isValidDateInput } from "@/lib/utils";
 
 // City-level CRUD. Files are no longer accepted here — photos are uploaded
 // directly to Supabase Storage from the browser and registered via /api/admin/photos.
+
+// Rejects malformed dates (e.g. a mistyped year like "62026-06-20") that would
+// otherwise store fine but crash date formatting on render.
+const dateField = z
+  .string()
+  .nullable()
+  .optional()
+  .refine(isValidDateInput, {
+    message: "Date must be a valid YYYY-MM-DD between 2000 and 2100.",
+  });
 
 const upsertSchema = z.object({
   id: z.string().uuid().optional(),
   slug: z.string().min(2),
   status: z.enum(["visited", "current", "upcoming"]),
-  arrival_date: z.string().nullable().optional(),
-  departure_date: z.string().nullable().optional(),
+  arrival_date: dateField,
+  departure_date: dateField,
   teaser: z.string().min(1).max(280),
 });
 
