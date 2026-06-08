@@ -7,20 +7,49 @@ export function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function formatDateRange(start: string | null, end: string | null) {
-  if (!start && !end) return "Dates TBD";
+// Earliest/latest plausible trip year. Anything outside this is almost
+// certainly a typo (e.g. a mistyped year like "62026").
+export const MIN_TRIP_DATE = "2000-01-01";
+export const MAX_TRIP_DATE = "2100-12-31";
 
+/**
+ * True when `value` is empty (dates are optional) or a well-formed
+ * YYYY-MM-DD in a sane year range. Rejects malformed years like
+ * "62026-06-20" that would later crash date formatting.
+ */
+export function isValidDateInput(value: string | null | undefined): boolean {
+  if (!value) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  const year = d.getFullYear();
+  return year >= 2000 && year <= 2100;
+}
+
+export function formatDateRange(start: string | null, end: string | null) {
   const formatter = new Intl.DateTimeFormat("en", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 
-  const format = (value: string) => formatter.format(new Date(`${value}T12:00:00`));
+  // Guard against malformed/out-of-range dates (e.g. a mistyped year like
+  // "62026-06-20"). Intl.DateTimeFormat.format throws "RangeError: Invalid
+  // time value" on an Invalid Date, which would crash the whole page.
+  const format = (value: string | null): string | null => {
+    if (!value) return null;
+    const d = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return formatter.format(d);
+  };
 
-  if (start && end) return `${format(start)} - ${format(end)}`;
-  if (start) return `Arrived ${format(start)}`;
-  return `Until ${format(end as string)}`;
+  const startLabel = format(start);
+  const endLabel = format(end);
+
+  if (startLabel && endLabel) return `${startLabel} - ${endLabel}`;
+  if (startLabel) return `Arrived ${startLabel}`;
+  if (endLabel) return `Until ${endLabel}`;
+  return "Dates TBD";
 }
 
 export function statusLabel(status: string) {
