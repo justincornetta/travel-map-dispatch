@@ -1,28 +1,40 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
+import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { ChevronLeft, ChevronRight, Maximize2, Play, X } from "lucide-react";
 
 import type { Photo } from "@/lib/types";
 
 const SWIPE_THRESHOLD = 40; // px of horizontal travel before a swipe counts
+const VISIBLE = 4; // cards rendered in the stack at once (front + up to 3 behind)
+const CARD_SIZES = "(max-width: 672px) 100vw, 640px";
 
 export function PostCarousel({ photos }: { photos: Photo[] }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const reduceMotion = useReducedMotion();
 
-  const safeIndex = Math.min(index, photos.length - 1);
+  const len = photos.length;
+  const safeIndex = ((index % len) + len) % len;
   const current = photos[safeIndex];
 
-  const prev = useCallback(
-    () => setIndex((i) => (i - 1 + photos.length) % photos.length),
-    [photos.length],
-  );
-  const next = useCallback(
-    () => setIndex((i) => (i + 1) % photos.length),
-    [photos.length],
-  );
+  const prev = useCallback(() => setIndex((i) => i - 1), []);
+  const next = useCallback(() => setIndex((i) => i + 1), []);
+
+  // Warm the cache for neighbouring media so advancing the deck is instant.
+  useEffect(() => {
+    if (len < 2) return;
+    for (const offset of [1, -1]) {
+      const photo = photos[(((safeIndex + offset) % len) + len) % len];
+      const href = photo?.mediaType === "video" ? photo.posterUrl : photo?.url;
+      if (!href) continue;
+      const img = new window.Image();
+      img.src = href;
+    }
+  }, [safeIndex, photos, len]);
 
   // Keyboard control while the lightbox is open.
   useEffect(() => {
@@ -50,64 +62,88 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
     touchStartX.current = e.touches[0]?.clientX ?? null;
   }
   function onTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null || photos.length < 2) return;
+    if (touchStartX.current === null || len < 2) return;
     const delta = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
     if (delta > SWIPE_THRESHOLD) prev();
     else if (delta < -SWIPE_THRESHOLD) next();
     touchStartX.current = null;
   }
 
-  if (photos.length === 0) return null;
+  if (len === 0) return null;
+
+  // The cards currently visible in the stack: the front photo and the few behind it.
+  const visibleCount = Math.min(VISIBLE, len);
+  const stack = Array.from({ length: visibleCount }, (_, depth) => {
+    const i = (((safeIndex + depth) % len) + len) % len;
+    return { photo: photos[i], depth };
+  });
 
   return (
     <>
       <div
-        className="group relative overflow-hidden rounded-lg bg-black"
+        className="relative select-none"
+        style={{ perspective: 1000 }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="block w-full cursor-zoom-in"
-          aria-label="Open photo full screen"
-        >
-          <img
-            src={current.url}
-            alt={current.altText}
-            loading="lazy"
-            decoding="async"
-            className="w-full select-none object-contain"
-            draggable={false}
-          />
-        </button>
+        <div className="relative aspect-[4/5] w-full">
+          <AnimatePresence initial={false}>
+            {stack
+              .slice()
+              .reverse()
+              .map(({ photo, depth }) => {
+                const isFront = depth === 0;
+                return (
+                  <motion.div
+                    key={photo.id}
+                    className="absolute inset-0 overflow-hidden rounded-xl bg-black shadow-lg ring-1 ring-white/10"
+                    style={{ zIndex: len - depth }}
+                    initial={{ opacity: 0, scale: 0.85, y: 24 }}
+                    animate={{
+                      opacity: depth > 2 ? 0 : 1,
+                      scale: reduceMotion ? 1 : 1 - depth * 0.05,
+                      y: reduceMotion ? 0 : depth * -14,
+                    }}
+                    exit={{ opacity: 0, scale: 0.8, y: -40 }}
+                    transition={
+                      reduceMotion
+                        ? { duration: 0.15 }
+                        : { type: "spring", stiffness: 320, damping: 32 }
+                    }
+                  >
+                    <CardMedia
+                      photo={photo}
+                      isFront={isFront}
+                      onExpand={photo.mediaType === "video" ? undefined : () => setOpen(true)}
+                    />
+                  </motion.div>
+                );
+              })}
+          </AnimatePresence>
+        </div>
 
-        <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
-          <Maximize2 className="h-4 w-4" aria-hidden="true" />
-        </span>
-
-        {photos.length > 1 ? (
+        {len > 1 ? (
           <>
             <button
               type="button"
               onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
-              aria-label="Previous photo"
+              className="absolute left-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
+              aria-label="Previous"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               type="button"
               onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
-              aria-label="Next photo"
+              className="absolute right-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
+              aria-label="Next"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
-            <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
-              {safeIndex + 1} / {photos.length}
+            <div className="absolute right-3 top-3 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
+              {safeIndex + 1} / {len}
             </div>
-            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+            <div className="absolute bottom-3 left-1/2 z-50 flex -translate-x-1/2 gap-1.5">
               {photos.map((p, i) => (
                 <button
                   key={p.id}
@@ -115,7 +151,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
                   className={`h-1.5 w-1.5 rounded-full transition ${
                     i === safeIndex ? "bg-white" : "bg-white/40"
                   }`}
-                  aria-label={`Go to photo ${i + 1}`}
+                  aria-label={`Go to item ${i + 1}`}
                 />
               ))}
             </div>
@@ -123,7 +159,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
         ) : null}
       </div>
 
-      {open ? (
+      {open && current.mediaType !== "video" ? (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/95 animate-[fade-in_150ms_ease-out]"
           role="dialog"
@@ -141,6 +177,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
             <X className="h-6 w-6" />
           </button>
 
+          {/* Full-resolution view; intentionally a plain img so zoom shows the original. */}
           <img
             src={current.url}
             alt={current.altText}
@@ -149,7 +186,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
             onClick={(e) => e.stopPropagation()}
           />
 
-          {photos.length > 1 ? (
+          {len > 1 ? (
             <>
               <button
                 type="button"
@@ -158,7 +195,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
                   prev();
                 }}
                 className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
-                aria-label="Previous photo"
+                aria-label="Previous"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -169,17 +206,84 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
                   next();
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
-                aria-label="Next photo"
+                aria-label="Next"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>
               <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white backdrop-blur">
-                {safeIndex + 1} / {photos.length}
+                {safeIndex + 1} / {len}
               </div>
             </>
           ) : null}
         </div>
       ) : null}
     </>
+  );
+}
+
+function CardMedia({
+  photo,
+  isFront,
+  onExpand,
+}: {
+  photo: Photo;
+  isFront: boolean;
+  onExpand?: () => void;
+}) {
+  if (photo.mediaType === "video") {
+    // Only the front video is interactive; cards behind show the poster still.
+    if (isFront) {
+      return (
+        <video
+          src={photo.url}
+          poster={photo.posterUrl ?? undefined}
+          controls
+          muted
+          playsInline
+          preload="metadata"
+          className="h-full w-full bg-black object-cover"
+        />
+      );
+    }
+    return (
+      <div className="relative h-full w-full bg-black">
+        {photo.posterUrl ? (
+          <Image src={photo.posterUrl} alt={photo.altText} fill sizes={CARD_SIZES} className="object-cover" />
+        ) : null}
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white">
+          <Play className="h-6 w-6" aria-hidden="true" />
+        </span>
+      </div>
+    );
+  }
+
+  // Image card. The front one is tappable to open the full-screen lightbox.
+  const img = (
+    <Image
+      src={photo.url}
+      alt={photo.altText}
+      fill
+      sizes={CARD_SIZES}
+      className="object-cover"
+      draggable={false}
+    />
+  );
+
+  if (!isFront || !onExpand) {
+    return <div className="relative h-full w-full">{img}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className="group absolute inset-0 h-full w-full cursor-zoom-in"
+      aria-label="Open full screen"
+    >
+      {img}
+      <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+        <Maximize2 className="h-4 w-4" aria-hidden="true" />
+      </span>
+    </button>
   );
 }

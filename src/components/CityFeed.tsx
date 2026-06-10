@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, NotebookPen, Share2, X } from "lucide-react";
 
 import { PostCarousel } from "@/components/PostCarousel";
+import { countryFlagUrl } from "@/lib/flags";
 import type { Stop, Post } from "@/lib/types";
 
 type Item = { kind: "post"; post: Post } | { kind: "divider"; hour: number };
@@ -71,8 +72,21 @@ export function CityFeed({
     await navigator.clipboard?.writeText(url).catch(() => undefined);
   }
 
+  const flagUrl = countryFlagUrl(stop.country);
+
   return (
     <div className="relative min-h-screen bg-stone-950 text-stone-100">
+      {/* National-flag backdrop — blurred + dimmed so post content stays legible. */}
+      {flagUrl ? (
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+          <div
+            className="h-full w-full scale-110 bg-cover bg-center opacity-20 blur-2xl"
+            style={{ backgroundImage: `url(${flagUrl})` }}
+          />
+          <div className="absolute inset-0 bg-stone-950/80" />
+        </div>
+      ) : null}
+
       {/* Sticky header */}
       <header className="sticky top-0 z-20 border-b border-white/10 bg-stone-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
@@ -94,7 +108,7 @@ export function CityFeed({
       </header>
 
       {/* Feed */}
-      <main className="mx-auto max-w-2xl px-4 pb-32 pt-4">
+      <main className="relative z-10 mx-auto max-w-2xl px-4 pb-32 pt-4">
         {stop.posts.length === 0 ? (
           <div className="mt-16 flex flex-col items-center text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 text-stone-400">

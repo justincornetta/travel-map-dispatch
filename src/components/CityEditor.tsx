@@ -15,7 +15,13 @@ import {
 } from "lucide-react";
 
 import { CITY_OPTIONS } from "@/lib/cities";
-import { compressImage, readPhotoTakenAt } from "@/lib/image";
+import {
+  captureVideoPoster,
+  compressImage,
+  isVideoFile,
+  readPhotoTakenAt,
+  validateVideo,
+} from "@/lib/image";
 import type { Stop, StopStatus } from "@/lib/types";
 import { uploadDirectToStorage } from "@/lib/upload";
 import { isValidDateInput, MAX_TRIP_DATE, MIN_TRIP_DATE } from "@/lib/utils";
@@ -28,6 +34,8 @@ type QueuedFile = {
   /** Stable local key for React. */
   key: string;
   file: File;
+  /** True for video clips (rendered + uploaded differently from photos). */
+  isVideo: boolean;
   /** Object URL for the thumbnail preview. Revoked on remove/unmount. */
   previewUrl: string;
   status: FileStatus;
@@ -230,18 +238,33 @@ export function CityEditor({ stop }: { stop?: Stop }) {
 
   async function addFiles(post: PostDraft, fileList: FileList | File[] | null) {
     const incoming = Array.from(fileList ?? []).filter(
-      (f) => f.type.startsWith("image/") || /\.(heic|heif)$/i.test(f.name),
+      (f) => f.type.startsWith("image/") || f.type.startsWith("video/") || /\.(heic|heif)$/i.test(f.name),
     );
     if (incoming.length === 0) return;
 
+    // Reject over-cap videos up front with a clear message.
+    const accepted: File[] = [];
+    for (const f of incoming) {
+      if (isVideoFile(f)) {
+        const check = await validateVideo(f);
+        if (!check.ok) {
+          setMessage({ kind: "error", text: check.reason });
+          continue;
+        }
+      }
+      accepted.push(f);
+    }
+    if (accepted.length === 0) return;
+
     // Append (don't replace), de-duping against what's already queued.
     const seen = new Set(post.queued.map((q) => `${q.file.name}:${q.file.size}`));
-    const fresh = incoming.filter((f) => !seen.has(`${f.name}:${f.size}`));
+    const fresh = accepted.filter((f) => !seen.has(`${f.name}:${f.size}`));
     if (fresh.length === 0) return;
 
     const queued: QueuedFile[] = fresh.map((file) => ({
       key: makeKey(),
       file,
+      isVideo: isVideoFile(file),
       previewUrl: URL.createObjectURL(file),
       status: "queued",
       progress: 0,
@@ -251,9 +274,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     );
 
     // Auto-fill "when did this happen" from the earliest photo's EXIF, unless
-    // the user already set a time for this post.
-    if (!post.timeEdited) {
-      const dates = (await Promise.all(fresh.map((f) => readPhotoTakenAt(f)))).filter(
+    // the user already set a time for this post. (Photos only — videos have no EXIF here.)
+    const freshPhotos = fresh.filter((f) => !isVideoFile(f));
+    if (!post.timeEdited && freshPhotos.length > 0) {
+      const dates = (await Promise.all(freshPhotos.map((f) => readPhotoTakenAt(f)))).filter(
         (d): d is Date => d instanceof Date,
       );
       if (dates.length > 0) {
@@ -383,18 +407,44 @@ export function CityEditor({ stop }: { stop?: Stop }) {
 
         // Upload everything not already stored (covers first save + retry).
         const pending = post.queued.filter((q) => q.status !== "done");
-        const uploaded: { fileKey: string; storage_path: string }[] = [];
+        const uploaded: {
+          fileKey: string;
+          storage_path: string;
+          media_type: "image" | "video";
+          poster_path?: string;
+        }[] = [];
         for (const q of pending) {
           try {
             setFile(post.key, q.key, { status: "uploading", progress: 0, error: undefined });
-            const compressed = await compressImage(q.file);
-            const path = await uploadDirectToStorage({
-              stopId: cityData.id,
-              postId: postData.id,
-              file: compressed,
-              onProgress: (percent) => setFile(post.key, q.key, { progress: percent }),
-            });
-            uploaded.push({ fileKey: q.key, storage_path: path });
+
+            if (q.isVideo) {
+              // Best-effort poster from the first frame, uploaded as a normal image.
+              let posterPath: string | undefined;
+              const poster = await captureVideoPoster(q.file).catch(() => null);
+              if (poster) {
+                posterPath = await uploadDirectToStorage({
+                  stopId: cityData.id,
+                  postId: postData.id,
+                  file: poster,
+                }).catch(() => undefined);
+              }
+              const path = await uploadDirectToStorage({
+                stopId: cityData.id,
+                postId: postData.id,
+                file: q.file,
+                onProgress: (percent) => setFile(post.key, q.key, { progress: percent }),
+              });
+              uploaded.push({ fileKey: q.key, storage_path: path, media_type: "video", poster_path: posterPath });
+            } else {
+              const compressed = await compressImage(q.file);
+              const path = await uploadDirectToStorage({
+                stopId: cityData.id,
+                postId: postData.id,
+                file: compressed,
+                onProgress: (percent) => setFile(post.key, q.key, { progress: percent }),
+              });
+              uploaded.push({ fileKey: q.key, storage_path: path, media_type: "image" });
+            }
           } catch (e) {
             anyFailed = true;
             setFile(post.key, q.key, {
@@ -410,7 +460,11 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               post_id: postData.id,
-              photos: uploaded.map((u) => ({ storage_path: u.storage_path })),
+              photos: uploaded.map((u) => ({
+                storage_path: u.storage_path,
+                media_type: u.media_type,
+                poster_path: u.poster_path,
+              })),
             }),
           });
           if (!regRes.ok) {
@@ -786,14 +840,14 @@ function PhotoUploader({
         }`}
       >
         <ImagePlus className="h-6 w-6 text-stone-400" aria-hidden />
-        <span className="mt-1 text-sm font-medium text-stone-600">Drag photos here, or tap to choose</span>
+        <span className="mt-1 text-sm font-medium text-stone-600">Drag photos or videos here, or tap to choose</span>
         <span className="text-xs text-stone-400">
-          Multiple selection supported · iOS Photos & HEIC welcome
+          Photos & short clips (≤60s, ≤100MB) · iOS Photos & HEIC welcome
         </span>
         <input
           ref={inputRef}
           type="file"
-          accept="image/*,.heic,.heif"
+          accept="image/*,video/*,.heic,.heif"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -813,7 +867,11 @@ function PhotoUploader({
                 q.status === "error" ? "ring-2 ring-rose-500" : "ring-stone-200"
               }`}
             >
-              <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
+              {q.isVideo ? (
+                <video src={q.previewUrl} muted playsInline className="h-24 w-full bg-black object-cover" />
+              ) : (
+                <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
+              )}
 
               {/* Uploading overlay + progress bar */}
               {q.status === "uploading" ? (

@@ -16,16 +16,16 @@ export function ExploreSection({ stops, focusSlug }: { stops: Stop[]; focusSlug?
 
   return (
     <>
-      <TravelMap
+      <JourneyTimeline
         stops={stops}
-        focusSlug={focusSlug}
         selectedId={selectedId}
         hoveredId={hoveredId}
         onSelect={setSelectedId}
         onHover={setHoveredId}
       />
-      <JourneyTimeline
+      <TravelMap
         stops={stops}
+        focusSlug={focusSlug}
         selectedId={selectedId}
         hoveredId={hoveredId}
         onSelect={setSelectedId}

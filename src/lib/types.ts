@@ -1,11 +1,17 @@
 export type StopStatus = "visited" | "current" | "upcoming";
 
+export type MediaType = "image" | "video";
+
 export type Photo = {
   id: string;
   postId: string;
   url: string;
   altText: string;
   displayOrder: number;
+  /** "image" (default) or "video". Drives whether the feed renders <img> or <video>. */
+  mediaType: MediaType;
+  /** For videos: a still-frame poster URL, or null if none was captured. */
+  posterUrl: string | null;
 };
 
 export type Post = {

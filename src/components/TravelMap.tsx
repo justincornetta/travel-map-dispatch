@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, ImageOff, Loader2, MapPinned } from "lucide-react";
 
@@ -158,17 +159,19 @@ export default function TravelMap({
       <aside className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-4 shadow-sm">
         {selectedStop ? (
           <div className="flex h-full flex-col">
-            <div className="relative overflow-hidden rounded-md bg-stone-200">
+            <div className="relative h-56 overflow-hidden rounded-md bg-stone-200">
               {selectedStop.photos[0] ? (
-                <img
+                <Image
+                  key={selectedStop.photos[0].id}
                   src={selectedStop.photos[0].url}
                   alt={selectedStop.photos[0].altText}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-56 w-full object-cover"
+                  fill
+                  sizes="390px"
+                  priority
+                  className="object-cover"
                 />
               ) : (
-                <div className="flex h-56 flex-col items-center justify-center gap-2 bg-stone-200 text-stone-500">
+                <div className="flex h-full flex-col items-center justify-center gap-2 bg-stone-200 text-stone-500">
                   <ImageOff className="h-7 w-7" aria-hidden="true" />
                   <span className="text-xs font-medium">Photos coming soon</span>
                 </div>
