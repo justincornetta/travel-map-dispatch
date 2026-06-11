@@ -81,10 +81,10 @@ export function CityFeed({
       {flagUrl ? (
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
           <div
-            className="h-full w-full scale-110 bg-cover bg-center opacity-45 blur-xl"
+            className="h-full w-full scale-110 bg-cover bg-center opacity-70 blur-lg"
             style={{ backgroundImage: `url(${flagUrl})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/45 via-stone-950/70 to-stone-950/90" />
+          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/30 via-stone-950/55 to-stone-950/80" />
         </div>
       ) : null}
 
