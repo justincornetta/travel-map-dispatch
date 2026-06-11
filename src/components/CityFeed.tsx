@@ -76,14 +76,15 @@ export function CityFeed({
 
   return (
     <div className="relative min-h-screen bg-stone-950 text-stone-100">
-      {/* National-flag backdrop — blurred + dimmed so post content stays legible. */}
+      {/* National-flag backdrop — softly blurred but clearly present; a gradient
+          scrim keeps post content legible over it. */}
       {flagUrl ? (
         <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
           <div
-            className="h-full w-full scale-110 bg-cover bg-center opacity-20 blur-2xl"
+            className="h-full w-full scale-110 bg-cover bg-center opacity-45 blur-xl"
             style={{ backgroundImage: `url(${flagUrl})` }}
           />
-          <div className="absolute inset-0 bg-stone-950/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/45 via-stone-950/70 to-stone-950/90" />
         </div>
       ) : null}
 

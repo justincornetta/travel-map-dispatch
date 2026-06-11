@@ -82,80 +82,98 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
     <>
       <div
         className="relative select-none"
-        style={{ perspective: 1000 }}
+        style={{ perspective: 1200 }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        <div className="relative aspect-[4/5] w-full">
+        {/* Extra top padding gives the peeking back-cards room above the front one. */}
+        <div className="relative aspect-[4/5] w-full pt-3">
           <AnimatePresence initial={false}>
             {stack
               .slice()
               .reverse()
               .map(({ photo, depth }) => {
                 const isFront = depth === 0;
+                const interactive = isFront && photo.mediaType !== "video";
                 return (
                   <motion.div
                     key={photo.id}
-                    className="absolute inset-0 overflow-hidden rounded-xl bg-black shadow-lg ring-1 ring-white/10"
-                    style={{ zIndex: len - depth }}
-                    initial={{ opacity: 0, scale: 0.85, y: 24 }}
+                    className="absolute inset-x-0 top-3 bottom-0 rounded-2xl bg-stone-50 p-2.5 pb-7 shadow-2xl ring-1 ring-black/10"
+                    style={{ zIndex: len - depth, transformOrigin: "top center" }}
+                    initial={{ opacity: 0, scale: 0.85, y: 28 }}
                     animate={{
                       opacity: depth > 2 ? 0 : 1,
                       scale: reduceMotion ? 1 : 1 - depth * 0.05,
                       y: reduceMotion ? 0 : depth * -14,
                     }}
-                    exit={{ opacity: 0, scale: 0.8, y: -40 }}
+                    exit={{ opacity: 0, scale: 0.8, y: -48 }}
                     transition={
                       reduceMotion
                         ? { duration: 0.15 }
                         : { type: "spring", stiffness: 320, damping: 32 }
                     }
                   >
-                    <CardMedia
-                      photo={photo}
-                      isFront={isFront}
-                      onExpand={photo.mediaType === "video" ? undefined : () => setOpen(true)}
-                    />
+                    {interactive ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="group relative block h-full w-full cursor-zoom-in overflow-hidden rounded-lg bg-stone-950"
+                        aria-label="Open full screen"
+                      >
+                        <CardMedia photo={photo} isFront={isFront} />
+                        <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+                          <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="relative h-full w-full overflow-hidden rounded-lg bg-stone-950">
+                        <CardMedia photo={photo} isFront={isFront} />
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}
           </AnimatePresence>
+
+          {len > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={prev}
+                className="absolute left-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                className="absolute right-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
+                aria-label="Next"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <div className="absolute right-5 top-6 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
+                {safeIndex + 1} / {len}
+              </div>
+            </>
+          ) : null}
         </div>
 
+        {/* Dot indicators sit below the postcard, on the dark feed background. */}
         {len > 1 ? (
-          <>
-            <button
-              type="button"
-              onClick={prev}
-              className="absolute left-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              className="absolute right-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/40 p-2 text-white backdrop-blur transition hover:bg-black/60"
-              aria-label="Next"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-            <div className="absolute right-3 top-3 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
-              {safeIndex + 1} / {len}
-            </div>
-            <div className="absolute bottom-3 left-1/2 z-50 flex -translate-x-1/2 gap-1.5">
-              {photos.map((p, i) => (
-                <button
-                  key={p.id}
-                  onClick={() => setIndex(i)}
-                  className={`h-1.5 w-1.5 rounded-full transition ${
-                    i === safeIndex ? "bg-white" : "bg-white/40"
-                  }`}
-                  aria-label={`Go to item ${i + 1}`}
-                />
-              ))}
-            </div>
-          </>
+          <div className="mt-3 flex justify-center gap-1.5">
+            {photos.map((p, i) => (
+              <button
+                key={p.id}
+                onClick={() => setIndex(i)}
+                className={`h-1.5 w-1.5 rounded-full transition ${
+                  i === safeIndex ? "bg-white" : "bg-white/30"
+                }`}
+                aria-label={`Go to item ${i + 1}`}
+              />
+            ))}
+          </div>
         ) : null}
       </div>
 
@@ -221,69 +239,53 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
   );
 }
 
-function CardMedia({
-  photo,
-  isFront,
-  onExpand,
-}: {
-  photo: Photo;
-  isFront: boolean;
-  onExpand?: () => void;
-}) {
-  if (photo.mediaType === "video") {
-    // Only the front video is interactive; cards behind show the poster still.
-    if (isFront) {
-      return (
-        <video
-          src={photo.url}
-          poster={photo.posterUrl ?? undefined}
-          controls
-          muted
-          playsInline
-          preload="metadata"
-          className="h-full w-full bg-black object-cover"
-        />
-      );
-    }
-    return (
-      <div className="relative h-full w-full bg-black">
-        {photo.posterUrl ? (
-          <Image src={photo.posterUrl} alt={photo.altText} fill sizes={CARD_SIZES} className="object-cover" />
-        ) : null}
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white">
-          <Play className="h-6 w-6" aria-hidden="true" />
-        </span>
-      </div>
-    );
-  }
-
-  // Image card. The front one is tappable to open the full-screen lightbox.
-  const img = (
-    <Image
-      src={photo.url}
-      alt={photo.altText}
-      fill
-      sizes={CARD_SIZES}
-      className="object-cover"
-      draggable={false}
-    />
-  );
-
-  if (!isFront || !onExpand) {
-    return <div className="relative h-full w-full">{img}</div>;
-  }
+// Renders the media inside a postcard's image well: a blurred fill of the same
+// frame behind a fully-contained image/video, so no photo is ever cropped and
+// every card keeps the same dimensions regardless of orientation.
+function CardMedia({ photo, isFront }: { photo: Photo; isFront: boolean }) {
+  const fillUrl = photo.mediaType === "video" ? photo.posterUrl : photo.url;
 
   return (
-    <button
-      type="button"
-      onClick={onExpand}
-      className="group absolute inset-0 h-full w-full cursor-zoom-in"
-      aria-label="Open full screen"
-    >
-      {img}
-      <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
-        <Maximize2 className="h-4 w-4" aria-hidden="true" />
-      </span>
-    </button>
+    <>
+      {fillUrl ? (
+        <div
+          aria-hidden
+          className="absolute inset-0 scale-125 bg-cover bg-center opacity-50 blur-2xl"
+          style={{ backgroundImage: `url(${fillUrl})` }}
+        />
+      ) : null}
+
+      {photo.mediaType === "video" ? (
+        isFront ? (
+          <video
+            src={photo.url}
+            poster={photo.posterUrl ?? undefined}
+            controls
+            muted
+            playsInline
+            preload="metadata"
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+        ) : (
+          <>
+            {photo.posterUrl ? (
+              <Image src={photo.posterUrl} alt={photo.altText} fill sizes={CARD_SIZES} className="object-contain" />
+            ) : null}
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white">
+              <Play className="h-6 w-6" aria-hidden="true" />
+            </span>
+          </>
+        )
+      ) : (
+        <Image
+          src={photo.url}
+          alt={photo.altText}
+          fill
+          sizes={CARD_SIZES}
+          className="object-contain"
+          draggable={false}
+        />
+      )}
+    </>
   );
 }
