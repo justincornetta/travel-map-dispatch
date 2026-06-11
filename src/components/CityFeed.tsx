@@ -89,7 +89,7 @@ export function CityFeed({
       ) : null}
 
       {/* Sticky header */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-stone-950/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-stone-950/95 shadow-lg shadow-black/30 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold">{stop.city.toLowerCase()}</h1>

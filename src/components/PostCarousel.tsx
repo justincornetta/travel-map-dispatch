@@ -86,8 +86,9 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {/* Extra top padding gives the peeking back-cards room above the front one. */}
-        <div className="relative aspect-[4/5] w-full pt-3">
+        {/* Reserved top space (top-6 on the cards) keeps the peeking back-cards
+            inside the deck so they never bleed up into the post title above. */}
+        <div className="relative aspect-[4/5] w-full">
           <AnimatePresence initial={false}>
             {stack
               .slice()
@@ -98,15 +99,15 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
                 return (
                   <motion.div
                     key={photo.id}
-                    className="absolute inset-x-0 top-3 bottom-0 rounded-2xl bg-stone-50 p-2.5 pb-7 shadow-2xl ring-1 ring-black/10"
+                    className="absolute inset-x-0 bottom-0 top-6 rounded-2xl bg-stone-50 p-2.5 pb-7 shadow-2xl ring-1 ring-black/10"
                     style={{ zIndex: len - depth, transformOrigin: "top center" }}
-                    initial={{ opacity: 0, scale: 0.85, y: 28 }}
+                    initial={{ opacity: 0, scale: 0.9, y: 18 }}
                     animate={{
                       opacity: depth > 2 ? 0 : 1,
                       scale: reduceMotion ? 1 : 1 - depth * 0.05,
-                      y: reduceMotion ? 0 : depth * -14,
+                      y: reduceMotion ? 0 : depth * -12,
                     }}
-                    exit={{ opacity: 0, scale: 0.8, y: -48 }}
+                    exit={{ opacity: 0, scale: 0.85, y: -40 }}
                     transition={
                       reduceMotion
                         ? { duration: 0.15 }
@@ -153,7 +154,7 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
-              <div className="absolute right-5 top-6 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
+              <div className="absolute right-5 top-10 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
                 {safeIndex + 1} / {len}
               </div>
             </>
