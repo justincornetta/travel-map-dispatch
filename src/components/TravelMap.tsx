@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { ExternalLink, ImageOff, Loader2, MapPinned } from "lucide-react";
+import { Loader2, MapPinned } from "lucide-react";
 
 import type { Stop, StopStatus } from "@/lib/types";
-import { formatDateRange } from "@/lib/utils";
-import { StatusBadge } from "@/components/StatusBadge";
+import { CityPostcard } from "@/components/CityPostcard";
 
 const statusColors: Record<StopStatus, string> = {
   visited: "#047857",
@@ -156,60 +153,17 @@ export default function TravelMap({
         ) : null}
       </div>
 
-      <aside className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-4 shadow-sm">
-        {selectedStop ? (
-          <div className="flex h-full flex-col">
-            <div className="relative h-56 overflow-hidden rounded-md bg-stone-200">
-              {selectedStop.photos[0] ? (
-                <Image
-                  key={selectedStop.photos[0].id}
-                  src={selectedStop.photos[0].url}
-                  alt={selectedStop.photos[0].altText}
-                  fill
-                  sizes="390px"
-                  priority
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 bg-stone-200 text-stone-500">
-                  <ImageOff className="h-7 w-7" aria-hidden="true" />
-                  <span className="text-xs font-medium">Photos coming soon</span>
-                </div>
-              )}
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <StatusBadge status={selectedStop.status} />
-              <span className="text-xs font-medium text-stone-500">
-                {formatDateRange(selectedStop.arrivalDate, selectedStop.departureDate)}
-              </span>
-            </div>
-            <h2 className="mt-4 text-2xl font-semibold leading-tight text-stone-950">
-              {selectedStop.city}
-            </h2>
-            <p className="mt-1 text-sm font-medium text-stone-600">{selectedStop.country}</p>
-            <p className="mt-4 text-sm leading-6 text-stone-700">{selectedStop.teaser}</p>
-            {selectedStop.posts.length > 0 ? (
-              <Link
-                href={`/stops/${selectedStop.slug}`}
-                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white transition-colors hover:bg-stone-800"
-              >
-                Open feed
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            ) : (
-              <p className="mt-5 text-sm text-stone-500">This city is planned. Posts will appear here.</p>
-            )}
-          </div>
-        ) : (
-          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-2 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-200 text-stone-500">
-              <MapPinned className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <p className="text-sm font-medium text-stone-600">No cities published yet.</p>
-            <p className="text-xs text-stone-500">The map fills in as the trip unfolds.</p>
-          </div>
-        )}
-      </aside>
+      {selectedStop ? (
+        <CityPostcard stop={selectedStop} />
+      ) : (
+        <aside className="flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-lg border border-stone-300 bg-[#fbfaf6] p-4 text-center shadow-sm lg:h-full">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-200 text-stone-500">
+            <MapPinned className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <p className="text-sm font-medium text-stone-600">No cities published yet.</p>
+          <p className="text-xs text-stone-500">The map fills in as the trip unfolds.</p>
+        </aside>
+      )}
     </section>
   );
 }
