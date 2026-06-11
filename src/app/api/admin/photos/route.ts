@@ -15,6 +15,8 @@ const requestSchema = z.object({
       z.object({
         storage_path: z.string().min(1),
         alt_text: z.string().optional(),
+        media_type: z.enum(["image", "video"]).optional(),
+        poster_path: z.string().min(1).optional(),
       }),
     )
     .min(1),
@@ -56,9 +58,14 @@ export async function POST(request: Request) {
     storage_path: photo.storage_path,
     alt_text: photo.alt_text ?? null,
     display_order: startOrder + index,
+    media_type: photo.media_type ?? "image",
+    poster_path: photo.poster_path ?? null,
   }));
 
-  const { error, data } = await supabase.from("photos").insert(rows).select("id, storage_path, display_order");
+  const { error, data } = await supabase
+    .from("photos")
+    .insert(rows)
+    .select("id, storage_path, display_order, media_type, poster_path");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ photos: data });

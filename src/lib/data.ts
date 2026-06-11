@@ -9,6 +9,8 @@ type PhotoRow = {
   storage_path: string;
   alt_text: string | null;
   display_order: number;
+  media_type?: string | null;
+  poster_path?: string | null;
 };
 
 type PostRow = {
@@ -45,12 +47,15 @@ function photoUrl(path: string) {
 }
 
 function mapPhoto(row: PhotoRow, fallbackAlt: string): Photo {
+  const mediaType = row.media_type === "video" ? "video" : "image";
   return {
     id: row.id,
     postId: row.post_id,
     url: photoUrl(row.storage_path),
     altText: row.alt_text || fallbackAlt,
     displayOrder: row.display_order,
+    mediaType,
+    posterUrl: row.poster_path ? photoUrl(row.poster_path) : null,
   };
 }
 

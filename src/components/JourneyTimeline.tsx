@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
 import { MapPin } from "lucide-react";
 
-import { StatusBadge } from "@/components/StatusBadge";
-import type { Stop } from "@/lib/types";
+import type { Stop, StopStatus } from "@/lib/types";
 import { formatDateRange } from "@/lib/utils";
+
+// Small colored dot per status, mirroring the map marker palette.
+const statusDot: Record<StopStatus, string> = {
+  visited: "bg-emerald-700",
+  current: "bg-amber-600",
+  upcoming: "bg-slate-500",
+};
 
 export function JourneyTimeline({
   stops,
@@ -25,29 +30,39 @@ export function JourneyTimeline({
   const firstRun = useRef(true);
 
   // When the selection changes (e.g. via a map-marker click), scroll the matching
-  // card into view — but skip the initial mount so we don't yank the page on load.
+  // chip into view horizontally — but skip the initial mount so we don't yank on load.
   useEffect(() => {
     if (firstRun.current) {
       firstRun.current = false;
       return;
     }
     if (!selectedId) return;
-    cardRefs.current.get(selectedId)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    cardRefs.current.get(selectedId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "nearest",
+    });
   }, [selectedId]);
 
+  if (stops.length === 0) return null;
+
   return (
-    <section className="mt-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="mt-8" aria-label="Journey timeline">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-stone-950">Journey timeline</h2>
-        <span className="text-sm text-stone-600">{stops.length} cit{stops.length === 1 ? "y" : "ies"}</span>
+        <span className="text-sm text-stone-600">
+          {stops.length} cit{stops.length === 1 ? "y" : "ies"}
+        </span>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:thin]">
         {stops.map((stop, index) => {
           const isSelected = stop.id === selectedId;
           const isHovered = stop.id === hoveredId;
+          const postCount = stop.posts.length;
           return (
-            <article
+            <button
               key={stop.id}
+              type="button"
               ref={(el) => {
                 if (el) cardRefs.current.set(stop.id, el);
                 else cardRefs.current.delete(stop.id);
@@ -55,7 +70,8 @@ export function JourneyTimeline({
               onClick={() => onSelect?.(stop.id)}
               onMouseEnter={() => onHover?.(stop.id)}
               onMouseLeave={() => onHover?.(null)}
-              className={`cursor-pointer rounded-lg border bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+              aria-pressed={isSelected}
+              className={`w-[200px] flex-none snap-start rounded-lg border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                 isSelected
                   ? "border-emerald-600 ring-2 ring-emerald-600/40"
                   : isHovered
@@ -63,29 +79,27 @@ export function JourneyTimeline({
                     : "border-stone-300"
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-stone-500">
-                  <MapPin className="h-4 w-4" aria-hidden="true" />
-                  City {index + 1}
-                </div>
-                <StatusBadge status={stop.status} />
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                  Stop {index + 1}
+                </span>
+                <span
+                  className={`h-2.5 w-2.5 flex-none rounded-full ${statusDot[stop.status]}`}
+                  aria-hidden="true"
+                />
               </div>
-              <h3 className="mt-4 text-lg font-semibold leading-snug text-stone-950">{stop.city}</h3>
-              <p className="mt-1 text-sm font-medium text-stone-600">{stop.country}</p>
-              <p className="mt-2 text-xs font-medium text-stone-500">
+              <p className="mt-2 truncate text-base font-semibold leading-tight text-stone-950">
+                {stop.city}
+              </p>
+              <p className="truncate text-xs font-medium text-stone-600">{stop.country}</p>
+              <p className="mt-2 text-[11px] font-medium text-stone-500">
                 {formatDateRange(stop.arrivalDate, stop.departureDate)}
               </p>
-              <p className="mt-4 line-clamp-3 text-sm leading-6 text-stone-700">{stop.teaser}</p>
-              {stop.posts.length > 0 ? (
-                <Link
-                  href={`/stops/${stop.slug}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-4 inline-flex text-sm font-semibold text-emerald-800 transition-colors hover:text-emerald-950"
-                >
-                  Open feed · {stop.posts.length} post{stop.posts.length === 1 ? "" : "s"}
-                </Link>
-              ) : null}
-            </article>
+              <p className="mt-1 text-[11px] font-semibold text-emerald-800">
+                {postCount} post{postCount === 1 ? "" : "s"}
+              </p>
+            </button>
           );
         })}
       </div>

@@ -7,6 +7,98 @@
 const HEIC_RE = /\.(heic|heif)$/i;
 const REENCODE_EXT_RE = /\.(heic|heif|png|webp|tiff?)$/i;
 
+// Free-tier-friendly caps for native video uploads. Bigger/longer clips burn
+// Supabase storage + egress fast, so reject them client-side with a clear message.
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100 MB
+export const MAX_VIDEO_SECONDS = 60;
+
+export function isVideoFile(file: File): boolean {
+  return file.type.startsWith("video/");
+}
+
+type VideoCheck = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Validate a video against the size/duration caps. Reads metadata via a
+ * throwaway <video> element; if duration can't be read we only enforce size.
+ */
+export async function validateVideo(file: File): Promise<VideoCheck> {
+  if (file.size > MAX_VIDEO_BYTES) {
+    return { ok: false, reason: `Video is too large (max ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} MB).` };
+  }
+  const duration = await readVideoDuration(file).catch(() => null);
+  if (duration != null && duration > MAX_VIDEO_SECONDS + 0.5) {
+    return { ok: false, reason: `Video is too long (max ${MAX_VIDEO_SECONDS}s).` };
+  }
+  return { ok: true };
+}
+
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(video.duration);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read video metadata"));
+    };
+    video.src = url;
+  });
+}
+
+/**
+ * Grab a still frame (~0.1s in) from a video to use as its poster image.
+ * Best-effort — returns null if the browser can't decode/seek the file.
+ */
+export async function captureVideoPoster(file: File): Promise<File | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+
+    const cleanup = () => URL.revokeObjectURL(url);
+    const fail = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    video.onloadedmetadata = () => {
+      // Seek a touch past the start to avoid an all-black first frame.
+      video.currentTime = Math.min(0.1, video.duration || 0.1);
+    };
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx || !canvas.width) return fail();
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            cleanup();
+            if (!blob) return resolve(null);
+            const baseName = file.name.replace(/\.[^.]+$/, "");
+            resolve(new File([blob], `${baseName}-poster.jpg`, { type: "image/jpeg" }));
+          },
+          "image/jpeg",
+          0.8,
+        );
+      } catch {
+        fail();
+      }
+    };
+    video.onerror = fail;
+    video.src = url;
+  });
+}
+
 export async function compressImage(
   file: File,
   maxDim = 2000,
