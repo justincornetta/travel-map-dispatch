@@ -40,26 +40,19 @@ export function CityPostcard({ stop }: { stop: Stop }) {
       <p className="relative mt-1.5 text-xs font-medium text-stone-500">{dates}</p>
 
       {/* Large headline photo — fills the bulk of the postcard. The full image
-          is shown (object-contain) over a blurred fill of itself, so no photo
-          is ever cropped and the surrounding space looks intentional. */}
-      <div className="relative mt-3 min-h-[15rem] flex-1 overflow-hidden rounded-sm bg-stone-300 shadow-sm ring-1 ring-stone-300">
+          is shown (object-contain); any letterbox space uses the postcard's
+          own paper colour so the photo sits seamlessly on the card. */}
+      <div className="relative mt-3 min-h-[15rem] flex-1 overflow-hidden rounded-sm bg-[#f4eddd]">
         {photo ? (
-          <>
-            <div
-              aria-hidden
-              className="absolute inset-0 scale-110 bg-cover bg-center opacity-55 blur-2xl"
-              style={{ backgroundImage: `url(${photo.url})` }}
-            />
-            <Image
-              key={photo.id}
-              src={photo.url}
-              alt={photo.altText}
-              fill
-              sizes="(max-width: 1024px) 100vw, 360px"
-              priority
-              className="object-contain"
-            />
-          </>
+          <Image
+            key={photo.id}
+            src={photo.url}
+            alt={photo.altText}
+            fill
+            sizes="(max-width: 1024px) 100vw, 360px"
+            priority
+            className="object-contain"
+          />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-500">
             <ImageOff className="h-7 w-7" aria-hidden="true" />
