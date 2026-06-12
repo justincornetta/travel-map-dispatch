@@ -39,33 +39,31 @@ export function CityPostcard({ stop }: { stop: Stop }) {
       </h2>
       <p className="relative mt-1.5 text-xs font-medium text-stone-500">{dates}</p>
 
-      {/* Body: headline photo on the left, summary on the right */}
-      <div className="relative mt-4 flex gap-3.5">
-        <div className="relative aspect-[3/4] w-28 flex-none overflow-hidden rounded-sm bg-stone-200 shadow-sm ring-1 ring-stone-300">
-          {photo ? (
-            <Image
-              key={photo.id}
-              src={photo.url}
-              alt={photo.altText}
-              fill
-              sizes="112px"
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-400">
-              <ImageOff className="h-6 w-6" aria-hidden="true" />
-              <span className="text-[10px] font-medium">No photo yet</span>
-            </div>
-          )}
-        </div>
-
-        <p className="min-w-0 flex-1 text-sm leading-6 text-stone-700">
-          {stop.teaser || "A new stop on the journey."}
-        </p>
+      {/* Large headline photo — fills the bulk of the postcard. */}
+      <div className="relative mt-3 min-h-[16rem] flex-1 overflow-hidden rounded-sm bg-stone-200 shadow-sm ring-1 ring-stone-300">
+        {photo ? (
+          <Image
+            key={photo.id}
+            src={photo.url}
+            alt={photo.altText}
+            fill
+            sizes="(max-width: 1024px) 100vw, 360px"
+            priority
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-400">
+            <ImageOff className="h-7 w-7" aria-hidden="true" />
+            <span className="text-xs font-medium">No photo yet</span>
+          </div>
+        )}
       </div>
 
-      {/* Footer */}
-      <div className="relative mt-auto pt-4">
+      {/* Summary + open feed, stacked underneath the photo. */}
+      <p className="relative mt-3 text-sm leading-6 text-stone-700">
+        {stop.teaser || "A new stop on the journey."}
+      </p>
+      <div className="relative mt-3">
         {hasFeed ? (
           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-800 transition-colors group-hover:text-emerald-950">
             Open feed
