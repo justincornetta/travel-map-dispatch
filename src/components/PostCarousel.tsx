@@ -18,17 +18,21 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
   const reduceMotion = useReducedMotion();
 
   const len = photos.length;
-  const safeIndex = ((index % len) + len) % len;
+  const safeIndex = Math.min(Math.max(index, 0), len - 1);
   const current = photos[safeIndex];
+  const canPrev = safeIndex > 0;
+  const canNext = safeIndex < len - 1;
 
-  const prev = useCallback(() => setIndex((i) => i - 1), []);
-  const next = useCallback(() => setIndex((i) => i + 1), []);
+  // Non-looping: clamp at both ends so the deck stops at the first / last photo.
+  const prev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
+  const next = useCallback(() => setIndex((i) => Math.min(len - 1, i + 1)), [len]);
 
-  // Warm the cache for neighbouring media so advancing the deck is instant.
+  // Warm the cache for the adjacent photos that actually exist.
   useEffect(() => {
     if (len < 2) return;
-    for (const offset of [1, -1]) {
-      const photo = photos[(((safeIndex + offset) % len) + len) % len];
+    for (const i of [safeIndex + 1, safeIndex - 1]) {
+      if (i < 0 || i >= len) continue;
+      const photo = photos[i];
       const href = photo?.mediaType === "video" ? photo.posterUrl : photo?.url;
       if (!href) continue;
       const img = new window.Image();
@@ -71,11 +75,11 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
 
   if (len === 0) return null;
 
-  // The cards currently visible in the stack: the front photo and the few behind it.
-  const visibleCount = Math.min(VISIBLE, len);
+  // The cards currently visible in the stack: the front photo and the few
+  // still ahead of it (no wrap-around, so the stack thins out near the end).
+  const visibleCount = Math.min(VISIBLE, len - safeIndex);
   const stack = Array.from({ length: visibleCount }, (_, depth) => {
-    const i = (((safeIndex + depth) % len) + len) % len;
-    return { photo: photos[i], depth };
+    return { photo: photos[safeIndex + depth], depth };
   });
 
   return (
@@ -138,22 +142,26 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
 
           {len > 1 ? (
             <>
-              <button
-                type="button"
-                onClick={prev}
-                className="absolute left-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
-                aria-label="Previous"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={next}
-                className="absolute right-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
-                aria-label="Next"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
+              {canPrev ? (
+                <button
+                  type="button"
+                  onClick={prev}
+                  className="absolute left-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
+                  aria-label="Previous"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              ) : null}
+              {canNext ? (
+                <button
+                  type="button"
+                  onClick={next}
+                  className="absolute right-3 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/45 p-2 text-white backdrop-blur transition hover:bg-black/65"
+                  aria-label="Next"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              ) : null}
               <div className="absolute right-5 top-10 z-50 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur">
                 {safeIndex + 1} / {len}
               </div>
@@ -207,28 +215,32 @@ export function PostCarousel({ photos }: { photos: Photo[] }) {
 
           {len > 1 ? (
             <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prev();
-                }}
-                className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
-                aria-label="Previous"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  next();
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
-                aria-label="Next"
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
+              {canPrev ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prev();
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
+                  aria-label="Previous"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+              ) : null}
+              {canNext ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    next();
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/20"
+                  aria-label="Next"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              ) : null}
               <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white backdrop-blur">
                 {safeIndex + 1} / {len}
               </div>
