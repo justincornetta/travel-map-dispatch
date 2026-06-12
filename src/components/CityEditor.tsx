@@ -14,7 +14,6 @@ import {
   X,
 } from "lucide-react";
 
-import { CITY_OPTIONS } from "@/lib/cities";
 import {
   captureVideoPoster,
   compressImage,
@@ -84,6 +83,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
   const router = useRouter();
 
   const [citySlug, setCitySlug] = useState(stop?.slug ?? "");
+  const [cityName, setCityName] = useState(stop?.city ?? "");
+  const [cityCountry, setCityCountry] = useState(stop?.country ?? "");
+  const [cityLat, setCityLat] = useState(stop?.latitude ?? 0);
+  const [cityLng, setCityLng] = useState(stop?.longitude ?? 0);
   const [status, setStatus] = useState<StopStatus>(stop?.status ?? "upcoming");
   const [arrivalDate, setArrivalDate] = useState(stop?.arrivalDate ?? "");
   const [departureDate, setDepartureDate] = useState(stop?.departureDate ?? "");
@@ -130,6 +133,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       if (!raw) return;
       const saved = JSON.parse(raw) as {
         citySlug?: string;
+        cityName?: string;
+        cityCountry?: string;
+        cityLat?: number;
+        cityLng?: number;
         status?: StopStatus;
         arrivalDate?: string;
         departureDate?: string;
@@ -137,6 +144,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         posts?: { key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
       };
       setCitySlug(saved.citySlug ?? "");
+      setCityName(saved.cityName ?? "");
+      setCityCountry(saved.cityCountry ?? "");
+      setCityLat(saved.cityLat ?? 0);
+      setCityLng(saved.cityLng ?? 0);
       setStatus(saved.status ?? "upcoming");
       setArrivalDate(saved.arrivalDate ?? "");
       setDepartureDate(saved.departureDate ?? "");
@@ -173,6 +184,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         autosaveKey,
         JSON.stringify({
           citySlug,
+          cityName,
+          cityCountry,
+          cityLat,
+          cityLng,
           status,
           arrivalDate,
           departureDate,
@@ -189,7 +204,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [autosaveKey, citySlug, status, arrivalDate, departureDate, teaser, posts]);
+  }, [autosaveKey, citySlug, cityName, cityCountry, cityLat, cityLng, status, arrivalDate, departureDate, teaser, posts]);
 
   // --- Dirty tracking (skip the initial render) --------------------------
   const firstRun = useRef(true);
@@ -341,8 +356,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
 
   async function saveAll() {
     setMessage(null);
-    if (!citySlug) {
-      setMessage({ kind: "error", text: "Pick a city from the dropdown first." });
+    if (!citySlug || !cityName) {
+      setMessage({ kind: "error", text: "Search for and select a city first." });
       return;
     }
     if (!teaser.trim()) {
@@ -372,6 +387,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         body: JSON.stringify({
           id: stop?.id,
           slug: citySlug,
+          city: cityName,
+          country: cityCountry,
+          latitude: cityLat,
+          longitude: cityLng,
           status,
           arrival_date: arrivalDate || null,
           departure_date: departureDate || null,
@@ -559,19 +578,17 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm font-semibold text-stone-800 sm:col-span-2">
             City
-            <select
-              value={citySlug}
-              onChange={(e) => setCitySlug(e.target.value)}
+            <CitySearchInput
+              selectedLabel={cityName && cityCountry ? `${cityName}, ${cityCountry}` : ""}
+              onSelect={({ slug, city, country, latitude, longitude }) => {
+                setCitySlug(slug);
+                setCityName(city);
+                setCityCountry(country);
+                setCityLat(latitude);
+                setCityLng(longitude);
+              }}
               disabled={isExisting}
-              className="mt-2 h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2 disabled:bg-stone-100"
-            >
-              <option value="">— Select a city —</option>
-              {CITY_OPTIONS.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.city}, {c.country}
-                </option>
-              ))}
-            </select>
+            />
             {isExisting ? (
               <span className="mt-1 block text-xs font-normal text-stone-500">
                 City can't be changed after the page exists.
@@ -797,6 +814,139 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           </p>
         ) : null}
       </aside>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// City search
+// ---------------------------------------------------------------------------
+
+type GeoResult = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country: string;
+  admin1?: string;
+};
+
+function slugify(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function CitySearchInput({
+  selectedLabel,
+  onSelect,
+  disabled,
+}: {
+  selectedLabel: string;
+  onSelect: (city: { slug: string; city: string; country: string; latitude: number; longitude: number }) => void;
+  disabled: boolean;
+}) {
+  const [query, setQuery] = useState(selectedLabel);
+  const [results, setResults] = useState<GeoResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync display text when parent updates selectedLabel (e.g. localStorage restore).
+  const prevLabel = useRef(selectedLabel);
+  useEffect(() => {
+    if (selectedLabel !== prevLabel.current) {
+      setQuery(selectedLabel);
+      prevLabel.current = selectedLabel;
+    }
+  }, [selectedLabel]);
+
+  // Close on outside click.
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const q = e.target.value;
+    setQuery(q);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.trim().length < 2) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=en&format=json`,
+        );
+        const data = (await res.json()) as { results?: GeoResult[] };
+        setResults(data.results ?? []);
+        setOpen(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }
+
+  function handleSelect(r: GeoResult) {
+    const label = r.admin1 ? `${r.name}, ${r.admin1}, ${r.country}` : `${r.name}, ${r.country}`;
+    setQuery(label);
+    setOpen(false);
+    setResults([]);
+    onSelect({ slug: slugify(r.name), city: r.name, country: r.country, latitude: r.latitude, longitude: r.longitude });
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={handleChange}
+        onFocus={() => results.length > 0 && setOpen(true)}
+        disabled={disabled}
+        placeholder="Search any city in the world…"
+        autoComplete="off"
+        className="mt-2 h-11 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2 disabled:bg-stone-100"
+      />
+      {loading ? (
+        <span className="absolute right-3 top-[calc(50%+4px)] -translate-y-1/2">
+          <Loader2 className="h-4 w-4 animate-spin text-stone-400" aria-hidden />
+        </span>
+      ) : null}
+      {open && results.length > 0 ? (
+        <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-stone-200 bg-white shadow-lg">
+          {results.map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(r)}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-stone-100"
+              >
+                <span className="font-medium">{r.name}</span>
+                {r.admin1 ? <span className="text-stone-500">, {r.admin1}</span> : null}
+                <span className="text-stone-500">, {r.country}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

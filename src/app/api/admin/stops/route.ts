@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireAdminApi } from "@/lib/auth";
-import { getCityBySlug } from "@/lib/cities";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { isValidDateInput } from "@/lib/utils";
 
@@ -22,6 +21,10 @@ const dateField = z
 const upsertSchema = z.object({
   id: z.string().uuid().optional(),
   slug: z.string().min(2),
+  city: z.string().min(1),
+  country: z.string().min(1),
+  latitude: z.number(),
+  longitude: z.number(),
   status: z.enum(["visited", "current", "upcoming"]),
   arrival_date: dateField,
   departure_date: dateField,
@@ -57,17 +60,12 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
 
-  const city = getCityBySlug(input.slug);
-  if (!city) {
-    return NextResponse.json({ error: `Unknown city: ${input.slug}` }, { status: 400 });
-  }
-
   const payload = {
-    slug: city.slug,
-    city: city.city,
-    country: city.country,
-    latitude: city.latitude,
-    longitude: city.longitude,
+    slug: input.slug,
+    city: input.city,
+    country: input.country,
+    latitude: input.latitude,
+    longitude: input.longitude,
     status: input.status,
     arrival_date: emptyToNull(input.arrival_date ?? null),
     departure_date: emptyToNull(input.departure_date ?? null),
