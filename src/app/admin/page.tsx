@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -33,13 +33,22 @@ export default async function AdminPage() {
             <h1 className="text-3xl font-semibold text-stone-950">Trip admin</h1>
             <p className="mt-1 text-sm text-stone-600">Signed in as {user.email}</p>
           </div>
-          <Link
-            href="/admin/stops/new"
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            New city
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/members"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-stone-300 px-4 text-sm font-semibold text-stone-800 hover:bg-stone-100"
+            >
+              <Users className="h-4 w-4" aria-hidden="true" />
+              Members
+            </Link>
+            <Link
+              href="/admin/stops/new"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-semibold text-white hover:bg-stone-800"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              New city
+            </Link>
+          </div>
         </div>
         {stops.length === 0 ? (
           <div className="rounded-lg border border-stone-300 bg-[#fbfaf6] p-8 text-center shadow-sm">

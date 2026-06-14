@@ -33,6 +33,7 @@ export function PostSocial({ postId }: { postId: string }) {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
@@ -79,6 +80,12 @@ export function PostSocial({ postId }: { postId: string }) {
         u ? `${meta.first_name ?? ""} ${meta.last_name ?? ""}`.trim() || u.email?.split("@")[0] || "Someone" : null,
       );
       loadLikes(u?.id ?? null);
+      if (u) {
+        fetch("/api/auth/me")
+          .then((r) => r.json())
+          .then((d) => active && setIsAdmin(Boolean(d.isAdmin)))
+          .catch(() => undefined);
+      }
     });
     loadComments();
     return () => {
@@ -131,8 +138,10 @@ export function PostSocial({ postId }: { postId: string }) {
   async function deleteComment(id: string) {
     const prev = comments;
     setComments((c) => c.filter((x) => x.id !== id));
-    const { error: delErr } = await supabase.from("post_comments").delete().eq("id", id);
-    if (delErr) setComments(prev); // restore on failure
+    // Route through the API so admins can remove anyone's comment; authors
+    // remove their own (RLS-enforced server-side).
+    const res = await fetch(`/api/posts/${postId}/comments/${id}`, { method: "DELETE" });
+    if (!res.ok) setComments(prev); // restore on failure
   }
 
   return (
@@ -192,7 +201,7 @@ export function PostSocial({ postId }: { postId: string }) {
                 <div className="flex items-baseline gap-2">
                   <span className="font-semibold text-stone-100">{c.author_name}</span>
                   <span className="text-[11px] text-stone-500">{formatWhen(c.created_at)}</span>
-                  {c.user_id === userId ? (
+                  {c.user_id === userId || isAdmin ? (
                     <button
                       type="button"
                       onClick={() => deleteComment(c.id)}
