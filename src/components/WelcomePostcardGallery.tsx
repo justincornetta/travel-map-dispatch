@@ -72,7 +72,7 @@ export function WelcomePostcardGallery({ slides }: { slides: PostcardSlide[] }) 
           <img
             src={slide.imageUrl}
             alt={`${slide.city}, ${slide.country}`}
-            className="mt-2.5 h-56 w-full rounded-sm object-cover shadow-sm ring-1 ring-stone-300"
+            className="mt-2.5 h-56 w-full rounded-sm bg-[#f4eddd] object-contain"
             draggable={false}
           />
         </motion.article>
