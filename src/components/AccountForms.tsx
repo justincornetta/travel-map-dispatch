@@ -13,13 +13,26 @@ const inputClass =
   "mt-2 h-12 w-full rounded-md border border-stone-300 bg-white px-3 text-base outline-none ring-emerald-700 focus:ring-2";
 const labelClass = "mt-4 block text-sm font-semibold text-stone-800";
 
-export function AccountForms() {
-  const [mode, setMode] = useState<Mode>("signin");
+export function AccountForms({ initialMode = "signin" }: { initialMode?: Mode }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
 
+  // Where to land after auth: a same-origin ?next=… path, else home.
+  function nextTarget() {
+    if (typeof window === "undefined") return "/";
+    const n = new URLSearchParams(window.location.search).get("next");
+    return n && n.startsWith("/") && !n.startsWith("//") ? n : "/";
+  }
+
   function go(to: string) {
-    // Full reload so server components + the header pick up the new session.
+    // Flag a one-time welcome toast, then full-reload so server components +
+    // the header pick up the new session.
+    try {
+      sessionStorage.setItem("justSignedIn", "1");
+    } catch {
+      /* ignore */
+    }
     window.location.assign(to);
   }
 
@@ -37,7 +50,7 @@ export function AccountForms() {
       }),
     });
     if (res.ok) {
-      go("/");
+      go(nextTarget());
       return;
     }
     const payload = await res.json().catch(() => ({}));
@@ -100,7 +113,7 @@ export function AccountForms() {
     }
 
     if (payload.signedIn) {
-      go("/");
+      go(nextTarget());
       return;
     }
 
