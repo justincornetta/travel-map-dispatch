@@ -29,6 +29,7 @@ const upsertSchema = z.object({
   arrival_date: dateField,
   departure_date: dateField,
   teaser: z.string().min(1).max(280),
+  cover_photo_id: z.string().uuid().nullable().optional(),
 });
 
 function emptyToNull(value?: string | null) {
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
     arrival_date: emptyToNull(input.arrival_date ?? null),
     departure_date: emptyToNull(input.departure_date ?? null),
     teaser: input.teaser,
+    cover_photo_id: input.cover_photo_id ?? null,
   };
 
   const result = input.id

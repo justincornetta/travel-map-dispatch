@@ -16,7 +16,7 @@ export async function generateMetadata({
   const title = `${stop.city}, ${stop.country}`;
   const description =
     stop.teaser || `Photos and dispatches from ${stop.city}, ${stop.country}.`;
-  const cover = stop.photos[0];
+  const cover = stop.coverPhoto ?? stop.photos.find((p) => p.mediaType !== "video") ?? stop.photos[0];
   const images = cover ? [{ url: cover.url, alt: cover.altText }] : undefined;
 
   return {
