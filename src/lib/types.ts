@@ -41,6 +41,10 @@ export type Stop = {
   posts: Post[];
   /** Flattened convenience: every photo across this city's posts, ordered by post happened_at then photo display_order. */
   photos: Photo[];
+  /** Chosen home-page cover photo id (admin pick), or null to use the first photo. */
+  coverPhotoId: string | null;
+  /** Resolved cover photo (image), or null. Drives the home postcard + share image. */
+  coverPhoto: Photo | null;
 };
 
 export type StopInput = {

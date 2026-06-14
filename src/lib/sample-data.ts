@@ -50,5 +50,7 @@ export const sampleStops: Stop[] = [
         posterUrl: null,
       },
     ],
+    coverPhotoId: null,
+    coverPhoto: null,
   },
 ];

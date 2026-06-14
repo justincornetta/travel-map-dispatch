@@ -35,6 +35,7 @@ type StopRow = {
   teaser: string | null;
   is_published: boolean;
   notification_sent: boolean;
+  cover_photo_id?: string | null;
   posts?: PostRow[];
 };
 
@@ -82,6 +83,10 @@ function mapStop(row: StopRow): Stop {
     .map((p) => mapPost(p, row.city));
 
   const flatPhotos = posts.flatMap((p) => p.photos);
+  // Resolve the chosen cover (image only); fall back handled by consumers.
+  const coverPhotoId = row.cover_photo_id ?? null;
+  const coverPhoto =
+    (coverPhotoId && flatPhotos.find((p) => p.id === coverPhotoId && p.mediaType !== "video")) || null;
 
   return {
     id: row.id,
@@ -101,6 +106,8 @@ function mapStop(row: StopRow): Stop {
     notificationSent: row.notification_sent,
     posts,
     photos: flatPhotos,
+    coverPhotoId,
+    coverPhoto,
   };
 }
 

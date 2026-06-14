@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Send,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -22,7 +23,7 @@ import {
   readPhotoTakenAt,
   validateVideo,
 } from "@/lib/image";
-import type { Stop, StopStatus } from "@/lib/types";
+import type { MediaType, Stop, StopStatus } from "@/lib/types";
 import { uploadDirectToStorage } from "@/lib/upload";
 import { isValidDateInput, MAX_TRIP_DATE, MIN_TRIP_DATE } from "@/lib/utils";
 
@@ -52,7 +53,7 @@ type PostDraft = {
   happenedAt: string; // datetime-local string "YYYY-MM-DDTHH:mm"
   title: string;
   body: string;
-  existingPhotos: { id: string; url: string }[];
+  existingPhotos: { id: string; url: string; mediaType: MediaType }[];
   /** New files queued for upload on next save. */
   queued: QueuedFile[];
   /** True once the user (or a saved post) set the time; suppresses EXIF auto-fill. */
@@ -92,6 +93,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
   const [arrivalDate, setArrivalDate] = useState(stop?.arrivalDate ?? "");
   const [departureDate, setDepartureDate] = useState(stop?.departureDate ?? "");
   const [teaser, setTeaser] = useState(stop?.teaser ?? "");
+  const [coverPhotoId, setCoverPhotoId] = useState<string | null>(stop?.coverPhotoId ?? null);
 
   const [posts, setPosts] = useState<PostDraft[]>(() =>
     (stop?.posts ?? []).map((p) => ({
@@ -100,7 +102,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       happenedAt: toLocalDatetime(p.happenedAt),
       title: p.title ?? "",
       body: p.body,
-      existingPhotos: p.photos.map((ph) => ({ id: ph.id, url: ph.url })),
+      existingPhotos: p.photos.map((ph) => ({ id: ph.id, url: ph.url, mediaType: ph.mediaType })),
       queued: [],
       timeEdited: true,
     })),
@@ -215,7 +217,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       return;
     }
     setDirty(true);
-  }, [citySlug, status, arrivalDate, departureDate, teaser, posts]);
+  }, [citySlug, status, arrivalDate, departureDate, teaser, posts, coverPhotoId]);
 
   // --- Warn before leaving with unsaved changes --------------------------
   useEffect(() => {
@@ -424,6 +426,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           arrival_date: arrivalDate || null,
           departure_date: departureDate || null,
           teaser,
+          cover_photo_id: coverPhotoId,
         }),
       });
       if (!cityRes.ok) {
@@ -754,37 +757,58 @@ export function CityEditor({ stop }: { stop?: Stop }) {
               {/* Existing photos — drag to reorder */}
               {post.existingPhotos.length > 0 ? (
                 <div className="mt-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-stone-800">Photos</p>
-                    {post.existingPhotos.length > 1 ? (
-                      <p className="text-xs text-stone-400">Drag to reorder</p>
-                    ) : null}
+                    <p className="text-xs text-stone-400">
+                      Tap ★ to set the home cover{post.existingPhotos.length > 1 ? " · drag to reorder" : ""}
+                    </p>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {post.existingPhotos.map((photo, index) => (
-                      <div
-                        key={photo.id}
-                        draggable
-                        onDragStart={() => (dragExisting.current = { postKey: post.key, index })}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => {
-                          const d = dragExisting.current;
-                          dragExisting.current = null;
-                          if (d && d.postKey === post.key) reorderExisting(post.key, d.index, index);
-                        }}
-                        className="relative cursor-move rounded-md ring-emerald-600/0 transition hover:ring-2 hover:ring-emerald-600/40"
-                      >
-                        <img src={photo.url} alt="" className="pointer-events-none h-24 w-full rounded-md object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => removePhoto(post, photo.id)}
-                          className="absolute -right-2 -top-2 rounded-full bg-stone-950 p-1 text-white shadow"
-                          aria-label="Delete photo"
+                    {post.existingPhotos.map((photo, index) => {
+                      const isCover = photo.id === coverPhotoId;
+                      return (
+                        <div
+                          key={photo.id}
+                          draggable
+                          onDragStart={() => (dragExisting.current = { postKey: post.key, index })}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            const d = dragExisting.current;
+                            dragExisting.current = null;
+                            if (d && d.postKey === post.key) reorderExisting(post.key, d.index, index);
+                          }}
+                          className={`relative cursor-move rounded-md transition ${
+                            isCover ? "ring-2 ring-amber-500" : "ring-emerald-600/0 hover:ring-2 hover:ring-emerald-600/40"
+                          }`}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
+                          <img src={photo.url} alt="" className="pointer-events-none h-24 w-full rounded-md object-cover" />
+
+                          {/* Cover (home page) toggle — photos only */}
+                          {photo.mediaType !== "video" ? (
+                            <button
+                              type="button"
+                              onClick={() => setCoverPhotoId(isCover ? null : photo.id)}
+                              className={`absolute left-1 top-1 rounded-full p-1 shadow transition ${
+                                isCover ? "bg-amber-500 text-white" : "bg-black/55 text-white hover:bg-black/75"
+                              }`}
+                              aria-label={isCover ? "Cover image (tap to unset)" : "Set as home cover image"}
+                              title={isCover ? "Home cover image" : "Set as home cover"}
+                            >
+                              <Star className={`h-3.5 w-3.5 ${isCover ? "fill-current" : ""}`} />
+                            </button>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(post, photo.id)}
+                            className="absolute -right-2 -top-2 rounded-full bg-stone-950 p-1 text-white shadow"
+                            aria-label="Delete photo"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}

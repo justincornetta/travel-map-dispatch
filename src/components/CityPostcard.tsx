@@ -11,9 +11,10 @@ import { formatDateRange } from "@/lib/utils";
 // summary (the city's teaser) on the right, and a country-flag "stamp" with a
 // faux postmark in the top-right corner.
 export function CityPostcard({ stop }: { stop: Stop }) {
-  // Prefer a real photo for the headline; fall back to the first media (which
-  // may be a video) if there are no images.
-  const photo = stop.photos.find((m) => m.mediaType !== "video") ?? stop.photos[0];
+  // Headline media: the admin-chosen cover photo, else the first real photo,
+  // else the first media (which may be a video).
+  const photo = stop.coverPhoto ?? stop.photos.find((m) => m.mediaType !== "video") ?? stop.photos[0];
+  const fillUrl = photo ? (photo.mediaType === "video" ? photo.posterUrl : photo.url) : null;
   const hasFeed = stop.posts.length > 0;
   const dates = formatDateRange(stop.arrivalDate, stop.departureDate);
   const year = (stop.arrivalDate ?? stop.departureDate ?? "").slice(0, 4);
@@ -41,10 +42,17 @@ export function CityPostcard({ stop }: { stop: Stop }) {
       </h2>
       <p className="relative mt-1.5 text-xs font-medium text-stone-500">{dates}</p>
 
-      {/* Large headline photo — fills the bulk of the postcard. The full image
-          is shown (object-contain); any letterbox space uses the postcard's
-          own paper colour so the photo sits seamlessly on the card. */}
-      <div className="relative mt-3 min-h-[15rem] flex-1 overflow-hidden rounded-sm bg-[#f4eddd]">
+      {/* Large headline photo — the full image is shown (object-contain) over a
+          soft blurred fill of itself, so nothing is cropped and letterbox space
+          looks rich. */}
+      <div className="relative mt-3 min-h-[15rem] flex-1 overflow-hidden rounded-sm bg-stone-900">
+        {fillUrl ? (
+          <div
+            aria-hidden
+            className="absolute inset-0 scale-110 bg-cover bg-center opacity-50 blur-2xl"
+            style={{ backgroundImage: `url(${fillUrl})` }}
+          />
+        ) : null}
         {photo ? (
           photo.mediaType === "video" ? (
             <>
@@ -83,7 +91,7 @@ export function CityPostcard({ stop }: { stop: Stop }) {
             />
           )
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-500">
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-400">
             <ImageOff className="h-7 w-7" aria-hidden="true" />
             <span className="text-xs font-medium">No photo yet</span>
           </div>
