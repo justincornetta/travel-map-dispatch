@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Check,
+  Film,
   ImagePlus,
   Loader2,
   Plus,
@@ -1024,6 +1025,7 @@ function PhotoUploader({
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const dragQueued = useRef<number | null>(null);
 
   return (
@@ -1067,6 +1069,34 @@ function PhotoUploader({
             e.target.value = "";
           }}
         />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            onAdd(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {/* Dedicated video picker — on iPhone this opens the Videos filter so you
+          pick a real clip (Live Photos upload as a still and won't appear). */}
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            videoInputRef.current?.click();
+          }}
+          className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100"
+        >
+          <Film className="h-3.5 w-3.5" aria-hidden="true" />
+          Add a video
+        </button>
+        <span className="text-xs text-stone-400">iPhone Live Photos upload as a still — use this for clips.</span>
       </div>
 
       {queued.length > 0 ? (
@@ -1091,6 +1121,13 @@ function PhotoUploader({
               ) : (
                 <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
               )}
+
+              {/* Confirm at a glance whether a clip registered as a video. */}
+              {q.isVideo ? (
+                <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  <Film className="h-3 w-3" aria-hidden="true" /> Video
+                </span>
+              ) : null}
 
               {/* Uploading overlay + progress bar */}
               {q.status === "uploading" ? (
