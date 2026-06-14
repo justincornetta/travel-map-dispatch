@@ -39,7 +39,7 @@ export function WelcomePostcardGallery({ slides }: { slides: PostcardSlide[] }) 
   const slide = slides[index];
 
   return (
-    <div className="relative h-[360px] w-full max-w-sm select-none">
+    <div className="relative h-[400px] w-full max-w-xl select-none">
       <AnimatePresence initial={false} mode="popLayout">
         <motion.article
           key={index}
@@ -69,12 +69,21 @@ export function WelcomePostcardGallery({ slides }: { slides: PostcardSlide[] }) 
           </h3>
           <p className="mt-0.5 text-xs font-medium text-stone-500">{slide.dates}</p>
 
-          <img
-            src={slide.imageUrl}
-            alt={`${slide.city}, ${slide.country}`}
-            className="mt-2.5 h-56 w-full rounded-sm bg-[#f4eddd] object-contain"
-            draggable={false}
-          />
+          <div className="relative mt-2.5 h-72 w-full overflow-hidden rounded-sm bg-stone-900">
+            {/* Soft blurred fill of the same photo so the full (contained) image
+                sits on a rich backdrop instead of empty paper. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 scale-110 bg-cover bg-center opacity-50 blur-2xl"
+              style={{ backgroundImage: `url(${slide.imageUrl})` }}
+            />
+            <img
+              src={slide.imageUrl}
+              alt={`${slide.city}, ${slide.country}`}
+              className="relative h-full w-full object-contain"
+              draggable={false}
+            />
+          </div>
         </motion.article>
       </AnimatePresence>
 
