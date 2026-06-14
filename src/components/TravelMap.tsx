@@ -14,7 +14,26 @@ const statusColors: Record<StopStatus, string> = {
 
 type LeafletModule = typeof import("leaflet");
 type LeafletMap = import("leaflet").Map;
-type LeafletCircleMarker = import("leaflet").CircleMarker;
+type LeafletMarker = import("leaflet").Marker;
+
+// A numbered, status-coloured pin built as a Leaflet divIcon so we can show the
+// stop's order (1, 2, 3…) inside the circle.
+function makePinIcon(
+  L: LeafletModule,
+  status: StopStatus,
+  number: number,
+  state: "default" | "hovered" | "selected",
+) {
+  const size = state === "selected" ? 32 : state === "hovered" ? 28 : 24;
+  const border = state === "default" ? 2 : 3;
+  const font = state === "selected" ? 14 : 12;
+  return L.divIcon({
+    className: "trip-pin",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:9999px;background:${statusColors[status]};border:${border}px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);color:#fff;font-weight:700;font-size:${font}px;line-height:1;display:flex;align-items:center;justify-content:center;">${number}</div>`,
+  });
+}
 
 export default function TravelMap({
   stops,
@@ -33,7 +52,8 @@ export default function TravelMap({
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<LeafletMap | null>(null);
-  const markersRef = useRef<Map<string, LeafletCircleMarker>>(new Map());
+  const markersRef = useRef<Map<string, LeafletMarker>>(new Map());
+  const leafletRef = useRef<LeafletModule | null>(null);
   const firstStyleRun = useRef(true);
   // Keep the latest callbacks reachable from the one-time init effect without re-running it.
   const onSelectRef = useRef(onSelect);
@@ -56,6 +76,7 @@ export default function TravelMap({
 
     async function loadMap() {
       const L: LeafletModule = await import("leaflet");
+      leafletRef.current = L;
       if (disposed || !mapRef.current) return;
 
       const leafletMap = L.map(mapRef.current, {
@@ -73,17 +94,12 @@ export default function TravelMap({
 
       const markers = markersRef.current;
       markers.clear();
-      stops.forEach((stop) => {
-        const marker = L.circleMarker([stop.latitude, stop.longitude], {
-          radius: 9,
-          color: "#ffffff",
-          fillColor: statusColors[stop.status],
-          fillOpacity: 0.95,
-          opacity: 1,
-          weight: 3,
+      stops.forEach((stop, index) => {
+        const marker = L.marker([stop.latitude, stop.longitude], {
+          icon: makePinIcon(L, stop.status, index + 1, "default"),
         })
           .addTo(leafletMap)
-          .bindTooltip(stop.city, { direction: "top", offset: [0, -8] })
+          .bindTooltip(`${index + 1}. ${stop.city}`, { direction: "top", offset: [0, -14] })
           .bindPopup(`<strong>${stop.city}</strong><br><span>${stop.country}</span>`)
           .on("click", () => onSelectRef.current(stop.id))
           .on("mouseover", () => onHoverRef.current(stop.id))
@@ -117,14 +133,18 @@ export default function TravelMap({
   // selected stop on user-driven changes (skipping the very first run after init).
   useEffect(() => {
     const markers = markersRef.current;
-    if (markers.size === 0) return;
+    const L = leafletRef.current;
+    if (markers.size === 0 || !L) return;
 
     markers.forEach((marker, id) => {
+      const index = stops.findIndex((s) => s.id === id);
+      if (index < 0) return;
       const isSelected = id === selectedId;
       const isHovered = id === hoveredId;
-      marker.setRadius(isSelected ? 12 : isHovered ? 11 : 9);
-      marker.setStyle({ weight: isSelected ? 4 : isHovered ? 4 : 3 });
-      if (isSelected || isHovered) marker.bringToFront();
+      marker.setIcon(
+        makePinIcon(L, stops[index].status, index + 1, isSelected ? "selected" : isHovered ? "hovered" : "default"),
+      );
+      marker.setZIndexOffset(isSelected ? 1000 : isHovered ? 500 : 0);
     });
 
     if (firstStyleRun.current) {

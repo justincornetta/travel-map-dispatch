@@ -48,11 +48,21 @@ export default async function CityPage({ params }: { params: Promise<{ slug: str
   const prev = index > 0 ? stops[index - 1] : null;
   const next = index < stops.length - 1 ? stops[index + 1] : null;
 
+  // Earliest date across the whole trip (arrivals + posts) → drives the
+  // "Day N" counter in the feed's day break-lines.
+  const dateMs: number[] = [];
+  for (const s of stops) {
+    if (s.arrivalDate) dateMs.push(new Date(`${s.arrivalDate}T12:00:00`).getTime());
+    for (const p of s.posts) dateMs.push(new Date(p.happenedAt).getTime());
+  }
+  const tripStartDate = dateMs.length ? new Date(Math.min(...dateMs)).toISOString() : null;
+
   return (
     <CityFeed
       stop={stop}
       prev={prev ? { slug: prev.slug, city: prev.city } : null}
       next={next ? { slug: next.slug, city: next.city } : null}
+      tripStartDate={tripStartDate}
     />
   );
 }

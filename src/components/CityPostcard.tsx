@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, ImageOff } from "lucide-react";
+import { ExternalLink, ImageOff, Play } from "lucide-react";
 
 import { countryFlagUrl } from "@/lib/flags";
 import type { Stop } from "@/lib/types";
@@ -11,7 +11,9 @@ import { formatDateRange } from "@/lib/utils";
 // summary (the city's teaser) on the right, and a country-flag "stamp" with a
 // faux postmark in the top-right corner.
 export function CityPostcard({ stop }: { stop: Stop }) {
-  const photo = stop.photos[0];
+  // Prefer a real photo for the headline; fall back to the first media (which
+  // may be a video) if there are no images.
+  const photo = stop.photos.find((m) => m.mediaType !== "video") ?? stop.photos[0];
   const hasFeed = stop.posts.length > 0;
   const dates = formatDateRange(stop.arrivalDate, stop.departureDate);
   const year = (stop.arrivalDate ?? stop.departureDate ?? "").slice(0, 4);
@@ -44,15 +46,42 @@ export function CityPostcard({ stop }: { stop: Stop }) {
           own paper colour so the photo sits seamlessly on the card. */}
       <div className="relative mt-3 min-h-[15rem] flex-1 overflow-hidden rounded-sm bg-[#f4eddd]">
         {photo ? (
-          <Image
-            key={photo.id}
-            src={photo.url}
-            alt={photo.altText}
-            fill
-            sizes="(max-width: 1024px) 100vw, 360px"
-            priority
-            className="object-contain"
-          />
+          photo.mediaType === "video" ? (
+            <>
+              {photo.posterUrl ? (
+                <Image
+                  key={photo.id}
+                  src={photo.posterUrl}
+                  alt={photo.altText}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 360px"
+                  priority
+                  className="object-contain"
+                />
+              ) : (
+                <video
+                  src={photo.url}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              )}
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/55 p-3 text-white">
+                <Play className="h-6 w-6" aria-hidden="true" />
+              </span>
+            </>
+          ) : (
+            <Image
+              key={photo.id}
+              src={photo.url}
+              alt={photo.altText}
+              fill
+              sizes="(max-width: 1024px) 100vw, 360px"
+              priority
+              className="object-contain"
+            />
+          )
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-1 text-stone-500">
             <ImageOff className="h-7 w-7" aria-hidden="true" />

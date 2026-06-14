@@ -44,6 +44,13 @@ select {
   font-size: 10px;
 }
 
+/* Numbered map pins: strip Leaflet's default divIcon white box so only our
+   coloured circle shows. */
+.leaflet-div-icon.trip-pin {
+  background: transparent;
+  border: 0;
+}
+
 .map-panel .leaflet-popup-content-wrapper {
   border-radius: 8px;
 }
