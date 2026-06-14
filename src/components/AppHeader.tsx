@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MapPin, MessageSquareText, ShieldCheck } from "lucide-react";
 
+import { AccountMenu } from "@/components/AccountMenu";
+
 export function AppHeader() {
   return (
     <header className="border-b border-stone-200 bg-[#fbfaf6]/90 backdrop-blur">
@@ -22,6 +24,7 @@ export function AppHeader() {
             <MessageSquareText className="h-4 w-4" aria-hidden="true" />
             Text updates
           </Link>
+          <AccountMenu />
           <Link
             href="/admin"
             className="inline-flex h-10 items-center gap-2 rounded-md border border-stone-300 px-4 text-stone-800 transition-colors hover:bg-stone-100"

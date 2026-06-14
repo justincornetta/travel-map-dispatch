@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "Terms and conditions for using Travel Map Dispatch and subscribing to its SMS notifications.",
 };
 
-const LAST_UPDATED = "May 27, 2026";
+const LAST_UPDATED = "June 14, 2026";
 const CONTACT_EMAIL = "justin.cornetta@gmail.com";
 
 export default function TermsPage() {
@@ -65,6 +65,20 @@ export default function TermsPage() {
           <p className="mt-3 text-base leading-7">
             Reply <code className="rounded bg-stone-100 px-1.5 py-0.5">HELP</code> for support
             information.
+          </p>
+
+          <h2 className="mt-8 text-2xl font-semibold text-stone-950">Accounts, comments &amp; likes</h2>
+          <p className="mt-3 text-base leading-7">
+            Creating an account is optional and free. You are responsible for keeping your password
+            secure and for activity under your account. Provide accurate registration details.
+          </p>
+          <p className="mt-3 text-base leading-7">
+            Comments are <strong>public</strong> and appear with your name. By posting, you grant us
+            permission to display your comment on the site. Keep comments civil and lawful — no
+            harassment, hate, spam, or illegal or infringing content. We may remove any comment and
+            suspend accounts at our discretion, and you may delete your own comments or request
+            account deletion at any time (see the{" "}
+            <a className="underline" href="/privacy">Privacy Policy</a>).
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">Acceptable use</h2>

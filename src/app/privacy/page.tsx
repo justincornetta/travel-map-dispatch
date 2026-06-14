@@ -6,10 +6,10 @@ import { AppHeader } from "@/components/AppHeader";
 export const metadata: Metadata = {
   title: "Privacy Policy — Travel Map Dispatch",
   description:
-    "How Travel Map Dispatch handles your phone number and other personal information when you subscribe to SMS updates.",
+    "How Travel Map Dispatch handles your account details, comments, and phone number.",
 };
 
-const LAST_UPDATED = "May 27, 2026";
+const LAST_UPDATED = "June 14, 2026";
 const CONTACT_EMAIL = "justin.cornetta@gmail.com";
 
 export default function PrivacyPage() {
@@ -50,9 +50,25 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-3 text-base leading-7">
-            We do not collect names, email addresses, IP addresses, browser fingerprints, or any
-            other personal information from subscribers. The site does not use analytics cookies
-            or third-party trackers.
+            The site does not use analytics cookies or third-party trackers, and we do not collect
+            IP addresses or browser fingerprints.
+          </p>
+
+          <h2 className="mt-8 text-2xl font-semibold text-stone-950">Accounts, likes, and comments</h2>
+          <p className="mt-3 text-base leading-7">
+            You can optionally create an account at{" "}
+            <a className="underline" href="/account">/account</a> to like and comment on posts. When
+            you register we collect your <strong>first and last name</strong>, <strong>email
+            address</strong>, a <strong>password</strong> (stored only as a salted hash by our
+            authentication provider, Supabase — we never see it), and an <strong>optional phone
+            number</strong> if you choose to also receive SMS alerts.
+          </p>
+          <p className="mt-3 text-base leading-7">
+            Comments you post are <strong>public</strong> and are shown alongside{" "}
+            <strong>your name</strong> and the time you posted. Likes are private counts; we do not
+            publicly display who liked a post. You can delete your own comments at any time, and you
+            can request deletion of your entire account and associated data by emailing{" "}
+            <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">How we use your phone number</h2>
