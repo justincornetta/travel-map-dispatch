@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
+import { WelcomeToast } from "@/components/WelcomeToast";
 import { getSiteUrl } from "@/lib/env";
 
 // Body / UI typeface. Exposed as the --font-inter CSS variable.
@@ -48,7 +49,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`h-full antialiased ${inter.variable} ${fraunces.variable}`}>
-      <body className="min-h-full bg-[#f6f3ec] text-stone-950">{children}</body>
+      <body className="min-h-full bg-[#f6f3ec] text-stone-950">
+        {children}
+        <WelcomeToast />
+      </body>
     </html>
   );
 }
