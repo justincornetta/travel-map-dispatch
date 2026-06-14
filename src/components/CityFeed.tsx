@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, NotebookPen, Share2, X } from "lucide-react";
 
 import { PostCarousel } from "@/components/PostCarousel";
+import { PostSocial } from "@/components/PostSocial";
 import { countryFlagUrl } from "@/lib/flags";
 import type { Stop, Post } from "@/lib/types";
 
@@ -152,6 +153,8 @@ export function CityFeed({
                   {item.post.body}
                 </p>
               ) : null}
+
+              <PostSocial postId={item.post.id} />
             </article>
           ),
         )}
