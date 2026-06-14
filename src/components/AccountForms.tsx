@@ -72,16 +72,22 @@ export function AccountForms() {
       }
     }
 
-    const supabase = createBrowserSupabaseClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { first_name: firstName, last_name: lastName, phone } },
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        password,
+        phone,
+      }),
     });
+    const payload = await res.json().catch(() => ({}));
 
-    if (error) {
+    if (!res.ok) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage(payload.error ?? "Unable to create your account right now.");
       return;
     }
 
@@ -93,14 +99,13 @@ export function AccountForms() {
       await fetch("/api/subscribe", { method: "POST", body: sms }).catch(() => undefined);
     }
 
-    if (data.session) {
+    if (payload.signedIn) {
       go("/");
       return;
     }
 
-    // Email confirmation is enabled on the project — no session yet.
     setStatus("info");
-    setMessage("Account created. Check your email to confirm it, then sign in.");
+    setMessage("Account created. Please sign in.");
     setMode("signin");
   }
 
