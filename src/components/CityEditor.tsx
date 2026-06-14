@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Check,
+  Film,
   ImagePlus,
   Loader2,
   Plus,
@@ -354,6 +355,34 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     updatePost(post.key, { existingPhotos: post.existingPhotos.filter((p) => p.id !== photoId) });
   }
 
+  // Drag-to-reorder for the per-post photo grid (existing saved photos).
+  const dragExisting = useRef<{ postKey: string; index: number } | null>(null);
+  function reorderExisting(postKey: string, from: number, to: number) {
+    if (from === to) return;
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.key !== postKey) return p;
+        const arr = [...p.existingPhotos];
+        const [moved] = arr.splice(from, 1);
+        arr.splice(to, 0, moved);
+        return { ...p, existingPhotos: arr };
+      }),
+    );
+  }
+
+  function reorderQueued(postKey: string, from: number, to: number) {
+    if (from === to) return;
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.key !== postKey) return p;
+        const arr = [...p.queued];
+        const [moved] = arr.splice(from, 1);
+        arr.splice(to, 0, moved);
+        return { ...p, queued: arr };
+      }),
+    );
+  }
+
   async function saveAll() {
     setMessage(null);
     if (!citySlug || !cityName) {
@@ -423,6 +452,19 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         const postData = (await postRes.json()) as { id: string };
         // Persist the server id so a retry reuses the same post.
         if (post.id !== postData.id) updatePost(post.key, { id: postData.id });
+
+        // Persist drag-reordering of already-saved photos (existing first, so new
+        // uploads append after them). Non-fatal if it fails.
+        if (post.existingPhotos.length > 1) {
+          await fetch("/api/admin/photos/reorder", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              post_id: postData.id,
+              ordered_ids: post.existingPhotos.map((p) => p.id),
+            }),
+          }).catch(() => undefined);
+        }
 
         // Upload everything not already stored (covers first save + retry).
         const pending = post.queued.filter((q) => q.status !== "done");
@@ -709,14 +751,30 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                 />
               </label>
 
-              {/* Existing photos */}
+              {/* Existing photos — drag to reorder */}
               {post.existingPhotos.length > 0 ? (
                 <div className="mt-4">
-                  <p className="text-sm font-semibold text-stone-800">Photos</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-stone-800">Photos</p>
+                    {post.existingPhotos.length > 1 ? (
+                      <p className="text-xs text-stone-400">Drag to reorder</p>
+                    ) : null}
+                  </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {post.existingPhotos.map((photo) => (
-                      <div key={photo.id} className="relative">
-                        <img src={photo.url} alt="" className="h-24 w-full rounded-md object-cover" />
+                    {post.existingPhotos.map((photo, index) => (
+                      <div
+                        key={photo.id}
+                        draggable
+                        onDragStart={() => (dragExisting.current = { postKey: post.key, index })}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          const d = dragExisting.current;
+                          dragExisting.current = null;
+                          if (d && d.postKey === post.key) reorderExisting(post.key, d.index, index);
+                        }}
+                        className="relative cursor-move rounded-md ring-emerald-600/0 transition hover:ring-2 hover:ring-emerald-600/40"
+                      >
+                        <img src={photo.url} alt="" className="pointer-events-none h-24 w-full rounded-md object-cover" />
                         <button
                           type="button"
                           onClick={() => removePhoto(post, photo.id)}
@@ -737,6 +795,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                 disabled={saving}
                 onAdd={(files) => addFiles(post, files)}
                 onRemove={(fileKey) => removeFile(post, fileKey)}
+                onReorder={(from, to) => reorderQueued(post.key, from, to)}
               />
             </div>
           ))}
@@ -956,14 +1015,18 @@ function PhotoUploader({
   disabled,
   onAdd,
   onRemove,
+  onReorder,
 }: {
   queued: QueuedFile[];
   disabled: boolean;
   onAdd: (files: FileList | File[] | null) => void;
   onRemove: (fileKey: string) => void;
+  onReorder: (from: number, to: number) => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const dragQueued = useRef<number | null>(null);
 
   return (
     <div className="mt-4">
@@ -1006,14 +1069,50 @@ function PhotoUploader({
             e.target.value = "";
           }}
         />
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            onAdd(e.target.files);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      {/* Dedicated video picker — on iPhone this opens the Videos filter so you
+          pick a real clip (Live Photos upload as a still and won't appear). */}
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            videoInputRef.current?.click();
+          }}
+          className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100"
+        >
+          <Film className="h-3.5 w-3.5" aria-hidden="true" />
+          Add a video
+        </button>
+        <span className="text-xs text-stone-400">iPhone Live Photos upload as a still — use this for clips.</span>
       </div>
 
       {queued.length > 0 ? (
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {queued.map((q) => (
+          {queued.map((q, index) => (
             <div
               key={q.key}
-              className={`relative overflow-hidden rounded-md ring-1 ${
+              draggable
+              onDragStart={() => (dragQueued.current = index)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                const from = dragQueued.current;
+                dragQueued.current = null;
+                if (from !== null) onReorder(from, index);
+              }}
+              className={`relative cursor-move overflow-hidden rounded-md ring-1 ${
                 q.status === "error" ? "ring-2 ring-rose-500" : "ring-stone-200"
               }`}
             >
@@ -1022,6 +1121,13 @@ function PhotoUploader({
               ) : (
                 <img src={q.previewUrl} alt="" className="h-24 w-full object-cover" />
               )}
+
+              {/* Confirm at a glance whether a clip registered as a video. */}
+              {q.isVideo ? (
+                <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  <Film className="h-3 w-3" aria-hidden="true" /> Video
+                </span>
+              ) : null}
 
               {/* Uploading overlay + progress bar */}
               {q.status === "uploading" ? (
