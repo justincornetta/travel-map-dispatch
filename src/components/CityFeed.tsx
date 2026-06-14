@@ -9,9 +9,25 @@ import { PostSocial } from "@/components/PostSocial";
 import { countryFlagUrl } from "@/lib/flags";
 import type { Stop, Post } from "@/lib/types";
 
-type Item = { kind: "post"; post: Post } | { kind: "divider"; hour: number };
+type Item =
+  | { kind: "post"; post: Post }
+  | { kind: "divider"; hour: number }
+  | { kind: "day"; iso: string };
 
 type NeighborLink = { slug: string; city: string } | null;
+
+function startOfDayMs(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// "Day 3 — Sunday, May 24" using a whole-trip day count from tripStartIso.
+function dayLabel(iso: string, tripStartIso: string | null) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  if (!tripStartIso) return date;
+  const n = Math.floor((startOfDayMs(d) - startOfDayMs(new Date(tripStartIso))) / 86_400_000) + 1;
+  return n >= 1 ? `Day ${n} — ${date}` : date;
+}
 
 // Format an hour (0–23) as a 222-style label: "12 AM", "2 AM", "12 PM", "9 PM".
 function hourLabel(hour: number) {
@@ -38,18 +54,29 @@ export function CityFeed({
   stop,
   prev = null,
   next = null,
+  tripStartDate = null,
 }: {
   stop: Stop;
   prev?: NeighborLink;
   next?: NeighborLink;
+  tripStartDate?: string | null;
 }) {
   // Posts are already sorted chronologically by mapStop in data.ts.
-  // Interleave hour-bucket dividers between adjacent posts whose hour differs.
+  // Insert a day break-line when the calendar day changes, then hour-bucket
+  // dividers between adjacent posts within a day whose hour differs.
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
+    let lastDay = "";
     let lastHour = -1;
     for (const post of stop.posts) {
-      const hour = new Date(post.happenedAt).getHours();
+      const d = new Date(post.happenedAt);
+      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (dayKey !== lastDay) {
+        out.push({ kind: "day", iso: post.happenedAt });
+        lastDay = dayKey;
+        lastHour = -1; // restart hour grouping under the new day
+      }
+      const hour = d.getHours();
       if (hour !== lastHour) {
         out.push({ kind: "divider", hour });
         lastHour = hour;
@@ -122,7 +149,15 @@ export function CityFeed({
         ) : null}
 
         {items.map((item, idx) =>
-          item.kind === "divider" ? (
+          item.kind === "day" ? (
+            <div key={`day-${idx}`} className="mb-6 mt-10 flex items-center gap-3 first:mt-2">
+              <div className="h-px flex-1 bg-white/25" />
+              <span className="whitespace-nowrap text-sm font-semibold tracking-wide text-stone-200">
+                {dayLabel(item.iso, tripStartDate)}
+              </span>
+              <div className="h-px flex-1 bg-white/25" />
+            </div>
+          ) : item.kind === "divider" ? (
             <div key={`d-${idx}-${item.hour}`} className="my-6 flex items-center gap-3">
               <div className="h-px flex-1 bg-white/15" />
               <span className="text-xs font-medium uppercase tracking-widest text-stone-400">

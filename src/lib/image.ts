@@ -12,8 +12,12 @@ const REENCODE_EXT_RE = /\.(heic|heif|png|webp|tiff?)$/i;
 export const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100 MB
 export const MAX_VIDEO_SECONDS = 60;
 
+const VIDEO_EXT_RE = /\.(mov|mp4|m4v|webm|avi|mkv|3gp|hevc)$/i;
+
+// iOS Safari sometimes reports an empty MIME type for .mov files, so fall back
+// to the extension to reliably detect videos.
 export function isVideoFile(file: File): boolean {
-  return file.type.startsWith("video/");
+  return file.type.startsWith("video/") || VIDEO_EXT_RE.test(file.name);
 }
 
 type VideoCheck = { ok: true } | { ok: false; reason: string };
