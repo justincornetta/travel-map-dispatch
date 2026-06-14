@@ -32,34 +32,29 @@ export function PostSocial({ postId }: { postId: string }) {
   const supabase = supabaseRef.current;
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [likeCount, setLikeCount] = useState(0);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  const [likers, setLikers] = useState<string[]>([]);
 
   const [comments, setComments] = useState<Comment[]>([]);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(true);
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadLikes = useCallback(
     async (uid: string | null) => {
-      const { count } = await supabase
+      const { data } = await supabase
         .from("post_likes")
-        .select("*", { count: "exact", head: true })
-        .eq("post_id", postId);
-      setLikeCount(count ?? 0);
-      if (uid) {
-        const { data } = await supabase
-          .from("post_likes")
-          .select("post_id")
-          .eq("post_id", postId)
-          .eq("user_id", uid)
-          .maybeSingle();
-        setLiked(Boolean(data));
-      } else {
-        setLiked(false);
-      }
+        .select("user_id, liker_name, created_at")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+      const rows = (data as { user_id: string; liker_name: string | null }[]) ?? [];
+      setLikeCount(rows.length);
+      setLikers(rows.map((r) => r.liker_name || "Someone"));
+      setLiked(uid ? rows.some((r) => r.user_id === uid) : false);
     },
     [supabase, postId],
   );
@@ -77,9 +72,13 @@ export function PostSocial({ postId }: { postId: string }) {
     let active = true;
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
-      const uid = data.user?.id ?? null;
-      setUserId(uid);
-      loadLikes(uid);
+      const u = data.user;
+      setUserId(u?.id ?? null);
+      const meta = (u?.user_metadata ?? {}) as { first_name?: string; last_name?: string };
+      setUserName(
+        u ? `${meta.first_name ?? ""} ${meta.last_name ?? ""}`.trim() || u.email?.split("@")[0] || "Someone" : null,
+      );
+      loadLikes(u?.id ?? null);
     });
     loadComments();
     return () => {
@@ -90,17 +89,19 @@ export function PostSocial({ postId }: { postId: string }) {
   async function toggleLike() {
     if (!userId || likeBusy) return;
     setLikeBusy(true);
-    // Optimistic update.
+    const myName = userName || "Someone";
     const wasLiked = liked;
+    // Optimistic update of state + the hover list.
     setLiked(!wasLiked);
     setLikeCount((c) => c + (wasLiked ? -1 : 1));
+    setLikers((prev) =>
+      wasLiked ? prev.filter((n, i) => !(n === myName && i === prev.indexOf(myName))) : [...prev, myName],
+    );
     const result = wasLiked
       ? await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", userId)
-      : await supabase.from("post_likes").insert({ post_id: postId, user_id: userId });
+      : await supabase.from("post_likes").insert({ post_id: postId, user_id: userId, liker_name: myName });
     if (result.error) {
-      // Roll back on failure.
-      setLiked(wasLiked);
-      setLikeCount((c) => c + (wasLiked ? 1 : -1));
+      await loadLikes(userId); // resync from the source of truth on failure
     }
     setLikeBusy(false);
   }
@@ -137,26 +138,39 @@ export function PostSocial({ postId }: { postId: string }) {
   return (
     <div className="mt-3 border-t border-white/10 pt-3">
       <div className="flex items-center gap-4 text-sm">
-        {userId ? (
-          <button
-            type="button"
-            onClick={toggleLike}
-            disabled={likeBusy}
-            className={`inline-flex items-center gap-1.5 transition-colors ${
-              liked ? "text-rose-400" : "text-stone-300 hover:text-rose-300"
-            }`}
-            aria-pressed={liked}
-            aria-label={liked ? "Unlike" : "Like"}
-          >
-            <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} aria-hidden="true" />
-            <span className="tabular-nums">{likeCount}</span>
-          </button>
-        ) : (
-          <Link href="/account" className="inline-flex items-center gap-1.5 text-stone-300 hover:text-rose-300">
-            <Heart className="h-4 w-4" aria-hidden="true" />
-            <span className="tabular-nums">{likeCount}</span>
-          </Link>
-        )}
+        {/* Like control + hover list of who liked. */}
+        <div className="group relative">
+          {userId ? (
+            <button
+              type="button"
+              onClick={toggleLike}
+              disabled={likeBusy}
+              className={`inline-flex items-center gap-1.5 transition-colors ${
+                liked ? "text-rose-400" : "text-stone-300 hover:text-rose-300"
+              }`}
+              aria-pressed={liked}
+              aria-label={liked ? "Unlike" : "Like"}
+            >
+              <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} aria-hidden="true" />
+              <span className="tabular-nums">{likeCount}</span>
+            </button>
+          ) : (
+            <Link href="/account" className="inline-flex items-center gap-1.5 text-stone-300 hover:text-rose-300">
+              <Heart className="h-4 w-4" aria-hidden="true" />
+              <span className="tabular-nums">{likeCount}</span>
+            </Link>
+          )}
+
+          {likers.length > 0 ? (
+            <div className="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-2 w-max max-w-[16rem] rounded-md border border-white/10 bg-stone-900 px-3 py-2 text-xs text-stone-200 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100">
+              <p className="mb-1 font-semibold text-stone-400">Liked by</p>
+              {likers.slice(0, 12).map((n, i) => (
+                <div key={`${n}-${i}`} className="truncate">{n}</div>
+              ))}
+              {likers.length > 12 ? <div className="text-stone-400">and {likers.length - 12} more</div> : null}
+            </div>
+          ) : null}
+        </div>
 
         <button
           type="button"
