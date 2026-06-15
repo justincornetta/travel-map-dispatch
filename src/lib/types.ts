@@ -18,6 +18,7 @@ export type Post = {
   id: string;
   stopId: string;
   happenedAt: string; // ISO timestamp; drives chronological order + hour-bucket dividers
+  createdAt: string; // ISO timestamp of when the row was created (used for "new posts since you last read")
   title: string | null;
   body: string;
   photos: Photo[];
@@ -45,6 +46,15 @@ export type Stop = {
   coverPhotoId: string | null;
   /** Resolved cover photo (image), or null. Drives the home postcard + share image. */
   coverPhoto: Photo | null;
+};
+
+/** Per-user reading progress for one city, computed server-side for the home timeline. */
+export type CityProgress = {
+  viewed: number;
+  total: number;
+  state: "none" | "partial" | "viewed" | "empty";
+  /** True when this city is partial because new posts arrived after the user last read it. */
+  isNew: boolean;
 };
 
 export type StopInput = {

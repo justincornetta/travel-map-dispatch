@@ -24,6 +24,7 @@ export const sampleStops: Stop[] = [
         id: "demo-post-lisbon-1",
         stopId: "demo-lisbon",
         happenedAt: "2026-06-02T18:00:00Z",
+        createdAt: "2026-06-02T18:00:00Z",
         title: "First walk",
         body: "Steep streets, bright tiles, good coffee, and a slower pace than the airport version of myself expected.",
         photos: [

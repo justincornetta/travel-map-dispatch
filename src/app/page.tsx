@@ -4,11 +4,12 @@ import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
 import { ExploreSection } from "@/components/ExploreSection";
 import { TripStats } from "@/components/TripStats";
-import { getPublicStops } from "@/lib/data";
+import { getPublicStops, getViewProgress } from "@/lib/data";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ focus?: string }> }) {
   const stops = await getPublicStops();
   const { focus } = await searchParams;
+  const { progress, resumeStopId } = await getViewProgress(stops);
   const current = stops.find((stop) => stop.status === "current");
 
   return (
@@ -30,7 +31,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ f
         </section>
 
         <TripStats stops={stops} />
-        <ExploreSection stops={stops} focusSlug={focus} />
+        <ExploreSection
+          stops={stops}
+          focusSlug={focus}
+          progress={progress}
+          resumeStopId={resumeStopId}
+        />
 
         {current ? (
           <section className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5">

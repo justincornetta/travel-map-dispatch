@@ -70,6 +70,11 @@ export default function PrivacyPage() {
             can request deletion of your entire account and associated data by emailing{" "}
             <a className="underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
           </p>
+          <p className="mt-3 text-base leading-7">
+            To show your <strong>reading progress</strong> — which cities you have already viewed and
+            where to pick the trip back up — we record which posts your account has seen. This is
+            private to your account, stored with Supabase, and never shared with third parties.
+          </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">How we use your phone number</h2>
           <p className="mt-3 text-base leading-7">

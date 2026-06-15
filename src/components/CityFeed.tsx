@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, NotebookPen, Share2, X } from "lucide-react";
 
 import { PostCarousel } from "@/components/PostCarousel";
 import { PostSocial } from "@/components/PostSocial";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { countryFlagUrl } from "@/lib/flags";
 import type { Stop, Post } from "@/lib/types";
 
@@ -85,6 +86,85 @@ export function CityFeed({
     }
     return out;
   }, [stop.posts]);
+
+  // --- Reading-progress tracking -----------------------------------------
+  // Record a post as "viewed" once it scrolls ≥50% into the viewport. Writes
+  // batch through the browser Supabase client; RLS on post_views scopes each
+  // row to the signed-in user (same pattern as likes in PostSocial).
+  const supabaseRef = useRef(createBrowserSupabaseClient());
+  const articleRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const userIdRef = useRef<string | null>(null);
+  const sentRef = useRef<Set<string>>(new Set());
+  const pendingRef = useRef<Set<string>>(new Set());
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flush = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!uid) return; // no session yet — keep pending, retry on next trigger
+    const ids = [...pendingRef.current].filter((id) => !sentRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => sentRef.current.add(id));
+    pendingRef.current.clear();
+    const rows = ids.map((post_id) => ({ user_id: uid, post_id }));
+    const { error } = await supabaseRef.current
+      .from("post_views")
+      .upsert(rows, { onConflict: "user_id,post_id", ignoreDuplicates: true });
+    if (error) ids.forEach((id) => sentRef.current.delete(id)); // allow a later retry
+  }, []);
+
+  const queue = useCallback(
+    (postId: string) => {
+      if (sentRef.current.has(postId)) return;
+      pendingRef.current.add(postId);
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      flushTimer.current = setTimeout(() => void flush(), 1000);
+    },
+    [flush],
+  );
+
+  // Resolve the signed-in user once, then drain anything queued during load.
+  useEffect(() => {
+    let active = true;
+    supabaseRef.current.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      userIdRef.current = data.user?.id ?? null;
+      if (pendingRef.current.size) void flush();
+    });
+    return () => {
+      active = false;
+    };
+  }, [flush]);
+
+  // Observe each post article; queue it when half-visible.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const id = (entry.target as HTMLElement).dataset.postId;
+            if (id) queue(id);
+          }
+        }
+      },
+      { threshold: 0.5 },
+    );
+    articleRefs.current.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [items, queue]);
+
+  // Flush pending views when the tab is hidden or the component unmounts.
+  useEffect(() => {
+    const onHide = () => void flush();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+      if (flushTimer.current) clearTimeout(flushTimer.current);
+      void flush();
+    };
+  }, [flush]);
 
   async function share() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -166,7 +246,15 @@ export function CityFeed({
               <div className="h-px flex-1 bg-white/15" />
             </div>
           ) : (
-            <article key={item.post.id} className="mb-8">
+            <article
+              key={item.post.id}
+              data-post-id={item.post.id}
+              ref={(el) => {
+                if (el) articleRefs.current.set(item.post.id, el);
+                else articleRefs.current.delete(item.post.id);
+              }}
+              className="mb-8"
+            >
               {/* Inline timestamp above the post */}
               <time
                 dateTime={item.post.happenedAt}
