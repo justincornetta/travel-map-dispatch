@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   try {
     const message = await client.messages.create({
       to: phoneNumber,
-      body: `Confirm Travel Dispatch texts: ${confirmUrl}. Reply STOP to unsubscribe.`,
+      body: `Confirm Personal Travel Blog texts: ${confirmUrl}. Reply STOP to unsubscribe.`,
       ...(process.env.TWILIO_MESSAGING_SERVICE_SID
         ? { messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID }
         : { from: process.env.TWILIO_FROM_NUMBER }),

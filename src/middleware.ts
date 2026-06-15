@@ -3,8 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 
 // Paths that never require a visitor account: the welcome/auth screens, the
 // auth callback, the admin area (which enforces its own ADMIN_EMAILS gate),
-// the legal pages, and all API routes (they do their own auth).
-const PUBLIC_PREFIXES = ["/welcome", "/account", "/auth", "/admin", "/privacy", "/terms", "/api"];
+// the legal + SMS opt-in pages (publicly viewable for A2P/carrier review), and
+// all API routes (they do their own auth).
+const PUBLIC_PREFIXES = ["/welcome", "/account", "/auth", "/admin", "/privacy", "/terms", "/subscribe", "/api"];
 
 // Let link-preview + search crawlers through so shared links still render a
 // rich preview, while humans must still sign in.
