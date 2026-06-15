@@ -12,6 +12,10 @@ export type Member = {
   signedUpAt: string | null;
   lastSignInAt: string | null;
   isAdmin: boolean;
+  /** Count of published posts this account has viewed. */
+  viewedPosts: number;
+  /** Count of cities where this account has viewed every published post. */
+  citiesViewed: number;
 };
 
 function fmt(iso: string | null) {
@@ -25,7 +29,15 @@ function fmt(iso: string | null) {
   });
 }
 
-export function MembersTable({ members }: { members: Member[] }) {
+export function MembersTable({
+  members,
+  totalPosts,
+  totalCities,
+}: {
+  members: Member[];
+  totalPosts: number;
+  totalCities: number;
+}) {
   const [rows, setRows] = useState(members);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -53,12 +65,13 @@ export function MembersTable({ members }: { members: Member[] }) {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-stone-300 bg-[#fbfaf6] shadow-sm">
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[860px] text-left text-sm">
         <thead className="border-b border-stone-200 text-xs uppercase tracking-wide text-stone-500">
           <tr>
             <th className="p-3 font-semibold">Name</th>
             <th className="p-3 font-semibold">Email</th>
             <th className="p-3 font-semibold">Phone</th>
+            <th className="p-3 font-semibold">Read</th>
             <th className="p-3 font-semibold">Signed up</th>
             <th className="p-3 font-semibold">Last sign-in</th>
             <th className="p-3 font-semibold" />
@@ -77,6 +90,15 @@ export function MembersTable({ members }: { members: Member[] }) {
               </td>
               <td className="p-3 text-stone-700">{m.email}</td>
               <td className="p-3 text-stone-700">{m.phone || "—"}</td>
+              <td className="p-3">
+                <ProgressCell
+                  isAdmin={m.isAdmin}
+                  viewedPosts={m.viewedPosts}
+                  citiesViewed={m.citiesViewed}
+                  totalPosts={totalPosts}
+                  totalCities={totalCities}
+                />
+              </td>
               <td className="p-3 text-stone-600">{fmt(m.signedUpAt)}</td>
               <td className="p-3 text-stone-600">{fmt(m.lastSignInAt)}</td>
               <td className="p-3 text-right">
@@ -100,6 +122,45 @@ export function MembersTable({ members }: { members: Member[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// Compact reading-progress readout: a thin bar plus "viewed/total posts" and a
+// cities-completed count. Admins aren't tracked, so show a dash.
+function ProgressCell({
+  isAdmin,
+  viewedPosts,
+  citiesViewed,
+  totalPosts,
+  totalCities,
+}: {
+  isAdmin: boolean;
+  viewedPosts: number;
+  citiesViewed: number;
+  totalPosts: number;
+  totalCities: number;
+}) {
+  if (isAdmin) return <span className="text-stone-400">—</span>;
+
+  const pct = totalPosts > 0 ? Math.round((viewedPosts / totalPosts) * 100) : 0;
+  const done = totalPosts > 0 && viewedPosts >= totalPosts;
+
+  return (
+    <div className="min-w-[140px]">
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-stone-200">
+          <div
+            className={`h-full rounded-full ${done ? "bg-emerald-600" : "bg-emerald-400"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-xs font-semibold text-stone-700">{pct}%</span>
+      </div>
+      <p className="mt-1 text-[11px] text-stone-500">
+        {viewedPosts}/{totalPosts} post{totalPosts === 1 ? "" : "s"} · {citiesViewed}/{totalCities}{" "}
+        cit{totalCities === 1 ? "y" : "ies"}
+      </p>
     </div>
   );
 }

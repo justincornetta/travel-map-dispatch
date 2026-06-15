@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MapPin } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 
-import type { Stop, StopStatus } from "@/lib/types";
+import type { CityProgress, Stop, StopStatus } from "@/lib/types";
 import { formatDateRange } from "@/lib/utils";
 
 // Small colored dot per status, mirroring the map marker palette.
@@ -13,14 +13,45 @@ const statusDot: Record<StopStatus, string> = {
   upcoming: "bg-slate-500",
 };
 
+// Small reading-progress badge shown on each tile: Viewed ✓ when complete,
+// "n/total" while partway through, plus a "New" marker when posts arrived after
+// the user last read this city. Nothing for unread or empty cities.
+function ProgressBadge({ progress }: { progress?: CityProgress }) {
+  if (!progress || progress.state === "none" || progress.state === "empty") return null;
+
+  if (progress.state === "viewed") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+        <Check className="h-3 w-3" aria-hidden="true" /> Viewed
+      </span>
+    );
+  }
+
+  // partial
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600">
+        {progress.viewed}/{progress.total}
+      </span>
+      {progress.isNew ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" /> New posts
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function JourneyTimeline({
   stops,
+  progress = {},
   selectedId,
   hoveredId,
   onSelect,
   onHover,
 }: {
   stops: Stop[];
+  progress?: Record<string, CityProgress>;
   selectedId?: string;
   hoveredId?: string | null;
   onSelect?: (id: string) => void;
@@ -96,9 +127,12 @@ export function JourneyTimeline({
               <p className="mt-2 text-[11px] font-medium text-stone-500">
                 {formatDateRange(stop.arrivalDate, stop.departureDate)}
               </p>
-              <p className="mt-1 text-[11px] font-semibold text-emerald-800">
-                {postCount} post{postCount === 1 ? "" : "s"}
-              </p>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold text-emerald-800">
+                  {postCount} post{postCount === 1 ? "" : "s"}
+                </p>
+                <ProgressBadge progress={progress[stop.id]} />
+              </div>
             </button>
           );
         })}

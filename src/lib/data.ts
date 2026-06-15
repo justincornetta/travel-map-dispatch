@@ -1,4 +1,4 @@
-import type { Photo, Post, Stop, StopStatus } from "@/lib/types";
+import type { CityProgress, Photo, Post, Stop, StopStatus } from "@/lib/types";
 import { hasSupabasePublicConfig } from "@/lib/env";
 import { sampleStops } from "@/lib/sample-data";
 import { createServerSupabaseClient, createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -17,6 +17,7 @@ type PostRow = {
   id: string;
   stop_id: string;
   happened_at: string;
+  created_at?: string | null;
   title: string | null;
   body: string | null;
   photos?: PhotoRow[];
@@ -70,6 +71,7 @@ function mapPost(row: PostRow, fallbackAlt: string): Post {
     id: row.id,
     stopId: row.stop_id,
     happenedAt: row.happened_at,
+    createdAt: row.created_at ?? row.happened_at,
     title: row.title,
     body: row.body ?? "",
     photos,
@@ -144,6 +146,82 @@ export async function getPublicStopBySlug(slug: string): Promise<Stop | null> {
 
   if (error || !data) return null;
   return mapStop(data as StopRow);
+}
+
+/**
+ * Per-user reading progress for the home timeline. Given the already-loaded
+ * stops (which carry their posts), reads the signed-in user's post_views (RLS
+ * scopes the query to their own rows) and derives a per-city state plus a
+ * "resume here" stop id.
+ *
+ * resumeStopId = first city in trip order the user hasn't fully read; if every
+ * non-empty city is read, the city they read most recently. Null when there's
+ * no session (the caller then falls back to its default selection).
+ */
+export async function getViewProgress(
+  stops: Stop[],
+): Promise<{ progress: Record<string, CityProgress>; resumeStopId: string | null }> {
+  const empty = { progress: {} as Record<string, CityProgress>, resumeStopId: null };
+
+  const supabase = await createServerSupabaseClient();
+  if (!supabase) return empty;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return empty;
+
+  const { data, error } = await supabase.from("post_views").select("post_id, viewed_at");
+  if (error) {
+    console.error("Unable to load reading progress", error);
+    return empty;
+  }
+
+  const viewedAt = new Map<string, number>();
+  for (const row of (data as { post_id: string; viewed_at: string }[]) ?? []) {
+    viewedAt.set(row.post_id, new Date(row.viewed_at).getTime());
+  }
+
+  const progress: Record<string, CityProgress> = {};
+  let resumeStopId: string | null = null;
+  let latestStopId: string | null = null;
+  let latestAt = -1;
+
+  for (const stop of stops) {
+    const total = stop.posts.length;
+    let viewed = 0;
+    let maxViewedAt = -1;
+    for (const post of stop.posts) {
+      const t = viewedAt.get(post.id);
+      if (t != null) {
+        viewed += 1;
+        if (t > maxViewedAt) maxViewedAt = t;
+      }
+    }
+
+    const state: CityProgress["state"] =
+      total === 0 ? "empty" : viewed === 0 ? "none" : viewed < total ? "partial" : "viewed";
+
+    const isNew =
+      state === "partial" &&
+      stop.posts.some(
+        (post) => !viewedAt.has(post.id) && new Date(post.createdAt).getTime() > maxViewedAt,
+      );
+
+    progress[stop.id] = { viewed, total, state, isNew };
+
+    // First unread/partial city in trip order wins the resume slot.
+    if (!resumeStopId && total > 0 && (state === "none" || state === "partial")) {
+      resumeStopId = stop.id;
+    }
+    // Track the most recently read city as the all-read fallback.
+    if (maxViewedAt > latestAt) {
+      latestAt = maxViewedAt;
+      latestStopId = stop.id;
+    }
+  }
+
+  return { progress, resumeStopId: resumeStopId ?? latestStopId };
 }
 
 export async function getAdminStops(): Promise<Stop[]> {
