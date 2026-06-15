@@ -694,15 +694,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         </label>
 
         {/* Posts */}
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-8">
           <h2 className="text-lg font-semibold text-stone-950">Posts ({posts.length})</h2>
-          <button
-            type="button"
-            onClick={addPost}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:bg-stone-50"
-          >
-            <Plus className="h-4 w-4" aria-hidden /> Add post
-          </button>
         </div>
         {posts.length === 0 ? (
           <p className="mt-3 rounded-md bg-stone-100 p-3 text-sm text-stone-600">
@@ -743,16 +736,10 @@ export function CityEditor({ stop }: { stop?: Stop }) {
                   />
                 </label>
               </div>
-              <label className="mt-3 block text-sm font-semibold text-stone-800">
-                Body
-                <textarea
-                  rows={5}
-                  value={post.body}
-                  onChange={(e) => updatePost(post.key, { body: e.target.value })}
-                  placeholder="A few lines about the moment…"
-                  className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-base outline-none ring-emerald-700 focus:ring-2"
-                />
-              </label>
+              <BodyField
+                value={post.body}
+                onChange={(body) => updatePost(post.key, { body })}
+              />
 
               {/* Existing photos — drag to reorder */}
               {post.existingPhotos.length > 0 ? (
@@ -823,6 +810,16 @@ export function CityEditor({ stop }: { stop?: Stop }) {
               />
             </div>
           ))}
+        </div>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={addPost}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:bg-stone-50"
+          >
+            <Plus className="h-4 w-4" aria-hidden /> Add post
+          </button>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -897,6 +894,104 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           </p>
         ) : null}
       </aside>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Body field with emoji picker
+// ---------------------------------------------------------------------------
+
+const EMOJI_LIST = [
+  // Travel & places
+  "✈️","🌍","🗺️","🏔️","🏖️","🗼","🏰","⛩️","🚂","🚢",
+  // Nature
+  "🌅","🌄","🌊","🌋","🌿","🌸","🦋","🐠","🦅","🌴",
+  // Food & drink
+  "🍕","🍜","🍣","🥘","🍷","☕","🍦","🥐","🌮","🥂",
+  // Activities
+  "🏄","🧗","🚴","🤿","⛷️","🎭","🎨","📸","🎵","🏛️",
+  // Feelings & reactions
+  "😊","🥰","😍","🤩","😎","🥳","😂","😭","❤️","💫",
+  // Misc
+  "🌙","⭐","🔥","💎","🎉","👀","🙌","💪","🫶","✨",
+];
+
+function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="rounded p-1 text-base leading-none text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+        aria-label="Insert emoji"
+        title="Insert emoji"
+      >
+        😊
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-20 mt-1 grid w-72 grid-cols-10 gap-0.5 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+          {EMOJI_LIST.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => {
+                onSelect(emoji);
+                setOpen(false);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded text-base hover:bg-stone-100"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BodyField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function insertEmoji(emoji: string) {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? value.length;
+    const end = el?.selectionEnd ?? value.length;
+    const next = value.slice(0, start) + emoji + value.slice(end);
+    onChange(next);
+    requestAnimationFrame(() => {
+      el?.focus();
+      const pos = start + emoji.length;
+      el?.setSelectionRange(pos, pos);
+    });
+  }
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-stone-800">Body</span>
+        <EmojiPicker onSelect={insertEmoji} />
+      </div>
+      <textarea
+        ref={textareaRef}
+        rows={5}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="A few lines about the moment…"
+        className="mt-2 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-base outline-none ring-emerald-700 focus:ring-2"
+      />
     </div>
   );
 }
