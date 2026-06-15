@@ -195,7 +195,7 @@ export function AccountForms({ initialMode = "signin" }: { initialMode?: Mode })
           <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-stone-700">
             <input name="consent" type="checkbox" className="mt-1 h-4 w-4 rounded border-stone-300 accent-emerald-800" />
             <span>
-              If I added a phone number, I agree to receive trip-update SMS from Justin's Travel Blog
+              If I added a phone number, I agree to receive trip-update SMS from Personal Travel Blog
               (operated by Justin Cornetta) — fewer than 5/week. Msg &amp; data rates may apply. Reply STOP
               to unsubscribe. See the{" "}
               <a className="underline hover:text-stone-950" href="/privacy" target="_blank" rel="noreferrer">privacy policy</a>{" "}

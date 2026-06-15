@@ -72,7 +72,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   // SMS link points to home with focus param so the map zooms to this city on arrival.
   // Lead with the brand name and end with the opt-out, per A2P requirements.
-  const body = `Justin's Travel Blog: ${stop.teaser} ${getSiteUrl()}/?focus=${stop.slug} Reply STOP to opt out.`;
+  const body = `Personal Travel Blog: ${stop.teaser} ${getSiteUrl()}/?focus=${stop.slug} Reply STOP to opt out.`;
 
   let sent = 0;
   let failed = 0;

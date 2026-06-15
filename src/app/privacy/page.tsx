@@ -4,9 +4,9 @@ import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Justin's Travel Blog",
+  title: "Privacy Policy — Personal Travel Blog",
   description:
-    "How Justin's Travel Blog handles your account details, comments, and phone number.",
+    "How Personal Travel Blog handles your account details, comments, and phone number.",
 };
 
 const LAST_UPDATED = "June 15, 2026";
@@ -22,7 +22,7 @@ export default function PrivacyPage() {
 
         <section className="prose mt-8 max-w-none text-stone-800">
           <p className="text-base leading-7">
-            Justin's Travel Blog is a personal travel blog operated by Justin Cornetta. This
+            Personal Travel Blog is a personal travel blog operated by Justin Cornetta. This
             policy describes what information the site collects, how it is used, and the choices
             you have. This is a low-volume personal project, not a business.
           </p>
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">Costs</h2>
           <p className="mt-3 text-base leading-7">
             Subscribing is free. <strong>Message and data rates may apply</strong> depending on
-            your mobile carrier and plan. Justin's Travel Blog does not charge you anything.
+            your mobile carrier and plan. Personal Travel Blog does not charge you anything.
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">Opting out</h2>

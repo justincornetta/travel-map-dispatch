@@ -4,9 +4,9 @@ import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions — Justin's Travel Blog",
+  title: "Terms & Conditions — Personal Travel Blog",
   description:
-    "Terms and conditions for using Justin's Travel Blog and subscribing to its SMS notifications.",
+    "Terms and conditions for using Personal Travel Blog and subscribing to its SMS notifications.",
 };
 
 const LAST_UPDATED = "June 15, 2026";
@@ -22,14 +22,14 @@ export default function TermsPage() {
 
         <section className="prose mt-8 max-w-none text-stone-800">
           <p className="text-base leading-7">
-            These terms govern your use of Justin's Travel Blog, a personal travel blog operated
+            These terms govern your use of Personal Travel Blog, a personal travel blog operated
             by Justin Cornetta. By visiting the site or subscribing to SMS updates, you agree to
             these terms.
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">The site</h2>
           <p className="mt-3 text-base leading-7">
-            Justin's Travel Blog is a personal project, not a commercial service. Content is
+            Personal Travel Blog is a personal project, not a commercial service. Content is
             provided for informational and entertainment purposes only and reflects the personal
             experience of the author. The site may be updated, paused, or taken down at any time
             without notice.
@@ -49,7 +49,7 @@ export default function TermsPage() {
           <p className="mt-3 text-base leading-7">
             Expected message frequency: fewer than 5 messages per week, typically less.{" "}
             <strong>Message and data rates may apply</strong> depending on your mobile carrier
-            and plan. Justin's Travel Blog does not charge for the subscription.
+            and plan. Personal Travel Blog does not charge for the subscription.
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">Opting out</h2>
@@ -90,7 +90,7 @@ export default function TermsPage() {
 
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">Content</h2>
           <p className="mt-3 text-base leading-7">
-            All photos, text, and other content on Justin's Travel Blog are the personal work of
+            All photos, text, and other content on Personal Travel Blog are the personal work of
             the author unless explicitly attributed otherwise. They are shared informally for
             friends and subscribers. Please don&apos;t republish or use this content commercially
             without permission.
@@ -99,7 +99,7 @@ export default function TermsPage() {
           <h2 className="mt-8 text-2xl font-semibold text-stone-950">No warranty</h2>
           <p className="mt-3 text-base leading-7">
             The site and its SMS notifications are provided &quot;as is&quot; with no warranties
-            of any kind. Justin's Travel Blog is not responsible for missed messages, delivery
+            of any kind. Personal Travel Blog is not responsible for missed messages, delivery
             delays, or any decisions you make based on content posted here. Real-world travel
             information may be out of date — verify anything that matters.
           </p>

@@ -12,7 +12,7 @@ export function AppHeader() {
             <MapPin className="h-5 w-5" aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-base font-semibold">Justin's Travel Blog</span>
+            <span className="block text-base font-semibold">Personal Travel Blog</span>
             <span className="block text-sm text-stone-600">Map, photos, and trip notes</span>
           </span>
         </Link>
