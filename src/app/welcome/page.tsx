@@ -54,7 +54,7 @@ export default async function WelcomePage() {
           <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-stone-950 text-white">
             <MapPin className="h-5 w-5" aria-hidden="true" />
           </span>
-          <span className="text-lg font-semibold text-stone-950">Travel Dispatch</span>
+          <span className="text-lg font-semibold text-stone-950">Justin's Travel Blog</span>
         </div>
 
         <h1 className="max-w-xl font-serif text-4xl font-semibold leading-tight text-stone-950 sm:text-5xl">
@@ -83,6 +83,14 @@ export default async function WelcomePage() {
             <Camera className="h-4 w-4 text-emerald-800" aria-hidden="true" /> Get notified when a new city goes live
           </li>
         </ul>
+
+        <p className="mt-6 text-xs text-stone-500">
+          <a className="underline hover:text-stone-700" href="/privacy">Privacy Policy</a>
+          {" · "}
+          <a className="underline hover:text-stone-700" href="/terms">Terms</a>
+          {" · "}
+          <a className="underline hover:text-stone-700" href="/subscribe">SMS updates</a>
+        </p>
       </section>
 
       <div className="w-full">

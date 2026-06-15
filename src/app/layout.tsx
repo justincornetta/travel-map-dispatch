@@ -24,20 +24,20 @@ const description =
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "Travel Dispatch",
-    template: "%s · Travel Dispatch",
+    default: "Justin's Travel Blog",
+    template: "%s · Justin's Travel Blog",
   },
   description,
   openGraph: {
-    title: "Travel Dispatch",
+    title: "Justin's Travel Blog",
     description,
-    siteName: "Travel Dispatch",
+    siteName: "Justin's Travel Blog",
     type: "website",
     url: "/",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Travel Dispatch",
+    title: "Justin's Travel Blog",
     description,
   },
 };
