@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  ChevronUp,
   Film,
+  GripVertical,
   ImagePlus,
   Loader2,
   Plus,
@@ -385,6 +388,19 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     );
   }
 
+  // Drag-to-reorder (and up/down) for the posts themselves. The new array order
+  // is persisted as each post's sort_order on save; the public feed follows it.
+  const dragPost = useRef<number | null>(null);
+  function reorderPost(from: number, to: number) {
+    if (from === to || to < 0 || to >= posts.length) return;
+    setPosts((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+  }
+
   async function saveAll() {
     setMessage(null);
     if (!citySlug || !cityName) {
@@ -436,7 +452,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       const cityData = (await cityRes.json()) as { id: string; slug: string };
 
       // 2) For each post: upsert, then upload pending photos, then register them.
-      for (const post of posts) {
+      //    The array index becomes sort_order so manual reordering persists.
+      for (const [idx, post] of posts.entries()) {
         const postRes = await fetch("/api/admin/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -444,6 +461,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             id: post.id,
             stop_id: cityData.id,
             happened_at: localDatetimeToIso(post.happenedAt || nowLocalDatetime()),
+            sort_order: idx,
             title: post.title || null,
             body: post.body,
           }),
@@ -704,9 +722,58 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         ) : null}
         <div className="mt-4 space-y-4">
           {posts.map((post, idx) => (
-            <div key={post.key} className="rounded-md border border-stone-300 bg-white p-4">
+            <div
+              key={post.key}
+              onDragOver={(e) => {
+                if (dragPost.current !== null) e.preventDefault();
+              }}
+              onDrop={() => {
+                const from = dragPost.current;
+                dragPost.current = null;
+                if (from !== null) reorderPost(from, idx);
+              }}
+              className="rounded-md border border-stone-300 bg-white p-4"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-stone-600">Post #{idx + 1}</span>
+                <div className="flex items-center gap-1.5">
+                  {posts.length > 1 ? (
+                    <span
+                      draggable
+                      onDragStart={() => (dragPost.current = idx)}
+                      onDragEnd={() => (dragPost.current = null)}
+                      className="cursor-grab text-stone-400 hover:text-stone-600 active:cursor-grabbing"
+                      title="Drag to reorder this post"
+                      aria-hidden
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </span>
+                  ) : null}
+                  <span className="text-sm font-semibold text-stone-600">Post #{idx + 1}</span>
+                  {posts.length > 1 ? (
+                    <span className="ml-1 inline-flex">
+                      <button
+                        type="button"
+                        onClick={() => reorderPost(idx, idx - 1)}
+                        disabled={idx === 0}
+                        className="rounded p-1 text-stone-500 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move post up"
+                        title="Move up"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => reorderPost(idx, idx + 1)}
+                        disabled={idx === posts.length - 1}
+                        className="rounded p-1 text-stone-500 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move post down"
+                        title="Move down"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   onClick={() => removePost(post)}
