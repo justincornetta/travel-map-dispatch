@@ -10,6 +10,7 @@
     "lint": "eslint src next.config.mjs"
   },
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",
     "leaflet": "^1.9.4",

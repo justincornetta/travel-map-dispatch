@@ -902,277 +902,36 @@ export function CityEditor({ stop }: { stop?: Stop }) {
 // Body field with emoji picker
 // ---------------------------------------------------------------------------
 
-type EmojiEntry = { emoji: string; keywords: string };
+interface EmojiMartEmoji {
+  id: string;
+  name: string;
+  keywords: string[];
+  skins: { unified: string; native: string }[];
+}
 
-const EMOJI_CATEGORIES: { label: string; entries: EmojiEntry[] }[] = [
-  {
-    label: "Travel & Transport",
-    entries: [
-      { emoji: "✈️", keywords: "airplane flight plane travel air" },
-      { emoji: "🚀", keywords: "rocket space launch" },
-      { emoji: "🛸", keywords: "ufo spaceship" },
-      { emoji: "🚂", keywords: "train steam locomotive rail" },
-      { emoji: "🚃", keywords: "railcar train" },
-      { emoji: "🚄", keywords: "bullet train fast speed rail" },
-      { emoji: "🚅", keywords: "shinkansen bullet train" },
-      { emoji: "🚇", keywords: "metro subway underground" },
-      { emoji: "🚌", keywords: "bus coach transport" },
-      { emoji: "🚗", keywords: "car automobile drive road trip" },
-      { emoji: "🚕", keywords: "taxi cab" },
-      { emoji: "🛻", keywords: "pickup truck" },
-      { emoji: "🏍️", keywords: "motorcycle motorbike scooter" },
-      { emoji: "🛵", keywords: "scooter moped vespa" },
-      { emoji: "🚲", keywords: "bicycle bike cycling" },
-      { emoji: "🛺", keywords: "auto rickshaw tuk tuk" },
-      { emoji: "🛶", keywords: "canoe rowboat boat" },
-      { emoji: "⛵", keywords: "sailboat sailing wind" },
-      { emoji: "🚢", keywords: "ship cruise ferry boat ocean" },
-      { emoji: "🚤", keywords: "speedboat boat motor" },
-      { emoji: "🛥️", keywords: "motorboat boat" },
-      { emoji: "⛽", keywords: "fuel gas station pump" },
-      { emoji: "🗺️", keywords: "map world travel directions" },
-      { emoji: "🧭", keywords: "compass directions navigation" },
-      { emoji: "🎒", keywords: "backpack bag travel hiking" },
-      { emoji: "🧳", keywords: "luggage suitcase baggage travel" },
-      { emoji: "🎫", keywords: "ticket admission entry" },
-      { emoji: "🛂", keywords: "passport control border customs" },
-      { emoji: "🛃", keywords: "customs baggage check" },
-      { emoji: "🏖️", keywords: "beach sand sun vacation" },
-    ],
-  },
-  {
-    label: "Places & Landmarks",
-    entries: [
-      { emoji: "🌍", keywords: "earth globe world europe africa" },
-      { emoji: "🌎", keywords: "earth globe world americas" },
-      { emoji: "🌏", keywords: "earth globe world asia australia" },
-      { emoji: "🏔️", keywords: "mountain peak snow summit" },
-      { emoji: "⛰️", keywords: "mountain hill" },
-      { emoji: "🌋", keywords: "volcano eruption lava" },
-      { emoji: "🗻", keywords: "fuji mountain japan snow" },
-      { emoji: "🏕️", keywords: "camping tent outdoor" },
-      { emoji: "🏝️", keywords: "island tropical paradise" },
-      { emoji: "🏜️", keywords: "desert sand hot dry" },
-      { emoji: "🏞️", keywords: "national park landscape nature" },
-      { emoji: "🌃", keywords: "night city stars skyline" },
-      { emoji: "🌆", keywords: "cityscape buildings evening" },
-      { emoji: "🌇", keywords: "sunset city buildings" },
-      { emoji: "🌉", keywords: "bridge night city lights" },
-      { emoji: "🗼", keywords: "eiffel tower paris france" },
-      { emoji: "🗽", keywords: "statue liberty new york usa" },
-      { emoji: "🏰", keywords: "castle europe medieval" },
-      { emoji: "🏯", keywords: "japanese castle japan" },
-      { emoji: "⛩️", keywords: "shinto shrine japan torii" },
-      { emoji: "🕌", keywords: "mosque islam religion" },
-      { emoji: "⛪", keywords: "church christian religion" },
-      { emoji: "🕍", keywords: "synagogue jewish" },
-      { emoji: "🏛️", keywords: "classical building columns roman greek" },
-      { emoji: "🏟️", keywords: "stadium arena sports" },
-      { emoji: "🎡", keywords: "ferris wheel amusement park fair" },
-      { emoji: "🎢", keywords: "roller coaster theme park" },
-      { emoji: "🎠", keywords: "carousel merry go round" },
-      { emoji: "⛲", keywords: "fountain water park plaza" },
-      { emoji: "🌁", keywords: "foggy bridge city mist" },
-    ],
-  },
-  {
-    label: "Nature & Weather",
-    entries: [
-      { emoji: "🌅", keywords: "sunrise morning dawn golden hour" },
-      { emoji: "🌄", keywords: "sunrise mountain morning" },
-      { emoji: "🌠", keywords: "shooting star night sky wish" },
-      { emoji: "🌌", keywords: "milky way galaxy stars night sky" },
-      { emoji: "🌊", keywords: "wave ocean sea surf water" },
-      { emoji: "🏄", keywords: "surfing wave beach surf" },
-      { emoji: "🌿", keywords: "herb leaf green nature plant" },
-      { emoji: "🌸", keywords: "cherry blossom spring flower pink japan" },
-      { emoji: "🌺", keywords: "hibiscus flower tropical red" },
-      { emoji: "🌻", keywords: "sunflower yellow bright sun" },
-      { emoji: "🌹", keywords: "rose flower red romance" },
-      { emoji: "🌷", keywords: "tulip spring flower" },
-      { emoji: "🍀", keywords: "four leaf clover lucky green" },
-      { emoji: "🍁", keywords: "maple leaf autumn fall canada" },
-      { emoji: "🌴", keywords: "palm tree tropical beach" },
-      { emoji: "🌵", keywords: "cactus desert southwest" },
-      { emoji: "🎋", keywords: "tanabata tree bamboo japan" },
-      { emoji: "🐠", keywords: "tropical fish sea ocean snorkel" },
-      { emoji: "🐟", keywords: "fish sea ocean" },
-      { emoji: "🦈", keywords: "shark ocean sea danger" },
-      { emoji: "🐙", keywords: "octopus sea ocean ink" },
-      { emoji: "🦭", keywords: "seal arctic animal" },
-      { emoji: "🦋", keywords: "butterfly insect nature colorful" },
-      { emoji: "🦅", keywords: "eagle bird soar freedom sky" },
-      { emoji: "🦜", keywords: "parrot tropical bird colorful" },
-      { emoji: "🐘", keywords: "elephant africa asia safari" },
-      { emoji: "🦁", keywords: "lion safari africa wild" },
-      { emoji: "🐆", keywords: "leopard safari cheetah spots" },
-      { emoji: "🦒", keywords: "giraffe africa tall safari" },
-      { emoji: "🐊", keywords: "crocodile alligator reptile swamp" },
-      { emoji: "☀️", keywords: "sun sunny hot summer" },
-      { emoji: "🌤️", keywords: "partly cloudy sun cloud" },
-      { emoji: "⛅", keywords: "partly sunny cloud" },
-      { emoji: "🌧️", keywords: "rain cloud rainy weather" },
-      { emoji: "⛈️", keywords: "thunder lightning storm rain" },
-      { emoji: "❄️", keywords: "snowflake snow cold winter" },
-      { emoji: "🌈", keywords: "rainbow colorful rain sun" },
-      { emoji: "🌬️", keywords: "wind blowing cold breeze" },
-      { emoji: "🌫️", keywords: "fog mist haze" },
-      { emoji: "🌙", keywords: "moon night crescent" },
-    ],
-  },
-  {
-    label: "Food & Drink",
-    entries: [
-      { emoji: "🍕", keywords: "pizza italy cheese tomato" },
-      { emoji: "🍝", keywords: "spaghetti pasta italy noodles" },
-      { emoji: "🍜", keywords: "ramen noodle soup bowl japan" },
-      { emoji: "🍛", keywords: "curry rice india asia" },
-      { emoji: "🍲", keywords: "stew pot hot food" },
-      { emoji: "🥘", keywords: "paella spain rice pan food" },
-      { emoji: "🫕", keywords: "fondue pot melting cheese" },
-      { emoji: "🍣", keywords: "sushi japan fish rice raw" },
-      { emoji: "🍱", keywords: "bento box japan lunch" },
-      { emoji: "🥟", keywords: "dumpling dim sum asian" },
-      { emoji: "🌮", keywords: "taco mexico tex mex" },
-      { emoji: "🌯", keywords: "burrito wrap tortilla" },
-      { emoji: "🥙", keywords: "stuffed flatbread pita falafel" },
-      { emoji: "🧆", keywords: "falafel middle east chickpea" },
-      { emoji: "🥐", keywords: "croissant france pastry breakfast" },
-      { emoji: "🥖", keywords: "baguette french bread" },
-      { emoji: "🥨", keywords: "pretzel germany bread snack" },
-      { emoji: "🧀", keywords: "cheese france europe dairy" },
-      { emoji: "🫔", keywords: "tamale mexican corn" },
-      { emoji: "🍢", keywords: "oden japanese skewer" },
-      { emoji: "🍦", keywords: "ice cream soft serve dessert sweet" },
-      { emoji: "🍧", keywords: "shaved ice dessert summer" },
-      { emoji: "🍨", keywords: "ice cream scoop dessert" },
-      { emoji: "🍩", keywords: "donut doughnut dessert sweet" },
-      { emoji: "🍰", keywords: "cake slice dessert birthday" },
-      { emoji: "🧁", keywords: "cupcake dessert sweet" },
-      { emoji: "🍫", keywords: "chocolate bar sweet" },
-      { emoji: "☕", keywords: "coffee hot espresso morning cafe" },
-      { emoji: "🧋", keywords: "bubble tea boba milk tea" },
-      { emoji: "🍵", keywords: "tea hot green ceremony japan" },
-      { emoji: "🍺", keywords: "beer pub cheers germany" },
-      { emoji: "🍻", keywords: "beers cheers toast celebration" },
-      { emoji: "🥂", keywords: "champagne toast celebration prosecco" },
-      { emoji: "🍷", keywords: "wine red glass dinner france" },
-      { emoji: "🍹", keywords: "tropical cocktail drink beach" },
-      { emoji: "🧃", keywords: "juice box drink beverage" },
-      { emoji: "🥤", keywords: "cup soft drink soda" },
-      { emoji: "🍶", keywords: "sake japanese rice wine" },
-      { emoji: "🫖", keywords: "teapot kettle tea british" },
-      { emoji: "🌽", keywords: "corn maize vegetable" },
-    ],
-  },
-  {
-    label: "Activities & Culture",
-    entries: [
-      { emoji: "🧗", keywords: "climbing rock wall mountain" },
-      { emoji: "🚴", keywords: "biking cycling road sport" },
-      { emoji: "🤿", keywords: "diving snorkeling mask" },
-      { emoji: "⛷️", keywords: "skiing snow mountain winter sport" },
-      { emoji: "🏂", keywords: "snowboarding snow mountain sport" },
-      { emoji: "🧘", keywords: "yoga meditation calm zen" },
-      { emoji: "🏊", keywords: "swimming pool ocean sport" },
-      { emoji: "⛺", keywords: "tent camping outdoor nature" },
-      { emoji: "🥾", keywords: "hiking boot trail outdoor" },
-      { emoji: "🎭", keywords: "theater arts performing stage" },
-      { emoji: "🎨", keywords: "art palette painting creative" },
-      { emoji: "📸", keywords: "camera photo photography selfie" },
-      { emoji: "📷", keywords: "camera photo photography" },
-      { emoji: "🎵", keywords: "music note song melody" },
-      { emoji: "🎶", keywords: "music notes song concert" },
-      { emoji: "🎸", keywords: "guitar music rock concert" },
-      { emoji: "🥁", keywords: "drums music beat rhythm" },
-      { emoji: "🎤", keywords: "microphone karaoke singing" },
-      { emoji: "🎪", keywords: "circus tent performance show" },
-      { emoji: "🎭", keywords: "performing arts theater mask" },
-      { emoji: "🎬", keywords: "film cinema clapper movie" },
-      { emoji: "📚", keywords: "books reading study library" },
-      { emoji: "🖼️", keywords: "painting art gallery museum frame" },
-      { emoji: "🏺", keywords: "amphora ancient greek roman history" },
-      { emoji: "⚽", keywords: "soccer football sport" },
-      { emoji: "🏀", keywords: "basketball sport" },
-      { emoji: "🏋️", keywords: "weightlifting gym workout" },
-      { emoji: "🤸", keywords: "gymnastics cartwheel acrobat" },
-      { emoji: "🪁", keywords: "boomerang throw sport" },
-      { emoji: "🎯", keywords: "bullseye target dart aim" },
-    ],
-  },
-  {
-    label: "Feelings & People",
-    entries: [
-      { emoji: "😊", keywords: "smile happy pleased warm" },
-      { emoji: "😄", keywords: "grinning happy big smile joy" },
-      { emoji: "😂", keywords: "laughing tears funny lol" },
-      { emoji: "🤣", keywords: "rolling floor laughing hilarious" },
-      { emoji: "😍", keywords: "heart eyes love adore beautiful" },
-      { emoji: "🥰", keywords: "smiling hearts love affection" },
-      { emoji: "🤩", keywords: "star struck amazed wow excited" },
-      { emoji: "😎", keywords: "sunglasses cool calm confident" },
-      { emoji: "🥳", keywords: "party hat celebrating birthday" },
-      { emoji: "😮", keywords: "open mouth surprised wow" },
-      { emoji: "🤯", keywords: "exploding head mind blown" },
-      { emoji: "😭", keywords: "crying sobbing sad tears" },
-      { emoji: "😤", keywords: "huffing steam triumph determined" },
-      { emoji: "😴", keywords: "sleeping tired exhausted zzz" },
-      { emoji: "🥱", keywords: "yawning tired bored exhausted" },
-      { emoji: "😵", keywords: "dizzy face exhausted" },
-      { emoji: "🤔", keywords: "thinking pondering wondering" },
-      { emoji: "🙏", keywords: "praying hands thank you please folded" },
-      { emoji: "👋", keywords: "waving hello goodbye hi" },
-      { emoji: "🤙", keywords: "call me shaka hang loose" },
-      { emoji: "👍", keywords: "thumbs up good ok approve yes" },
-      { emoji: "🙌", keywords: "raising hands praise celebration hooray" },
-      { emoji: "👏", keywords: "clapping applause bravo well done" },
-      { emoji: "💪", keywords: "muscle strong flex arm" },
-      { emoji: "🫶", keywords: "heart hands love care" },
-      { emoji: "🧑‍🤝‍🧑", keywords: "people together friends holding hands" },
-      { emoji: "👫", keywords: "couple together man woman" },
-      { emoji: "👨‍👩‍👧", keywords: "family parents child" },
-      { emoji: "🤝", keywords: "handshake greeting meeting deal" },
-      { emoji: "✌️", keywords: "peace sign two fingers victory" },
-    ],
-  },
-  {
-    label: "Objects & Symbols",
-    entries: [
-      { emoji: "❤️", keywords: "heart love red romance" },
-      { emoji: "🧡", keywords: "orange heart love warm" },
-      { emoji: "💛", keywords: "yellow heart love happy" },
-      { emoji: "💚", keywords: "green heart nature love" },
-      { emoji: "💙", keywords: "blue heart calm ocean love" },
-      { emoji: "💜", keywords: "purple heart love royal" },
-      { emoji: "🖤", keywords: "black heart dark love gothic" },
-      { emoji: "🤍", keywords: "white heart pure love" },
-      { emoji: "💫", keywords: "dizzy star sparkle" },
-      { emoji: "⭐", keywords: "star night sky bright" },
-      { emoji: "🌟", keywords: "glowing star bright shiny" },
-      { emoji: "✨", keywords: "sparkles magic glitter shine" },
-      { emoji: "🔥", keywords: "fire hot flame burn" },
-      { emoji: "💥", keywords: "explosion boom collision" },
-      { emoji: "🌊", keywords: "wave water ocean sea" },
-      { emoji: "🎉", keywords: "party popper confetti celebrate" },
-      { emoji: "🎊", keywords: "confetti ball celebration party" },
-      { emoji: "🎁", keywords: "gift present wrapped birthday" },
-      { emoji: "🏆", keywords: "trophy winner first place gold" },
-      { emoji: "🥇", keywords: "gold medal first place win" },
-      { emoji: "💎", keywords: "gem diamond jewel precious" },
-      { emoji: "👑", keywords: "crown king queen royal" },
-      { emoji: "🔑", keywords: "key lock door open" },
-      { emoji: "🗝️", keywords: "old key antique lock" },
-      { emoji: "📍", keywords: "pin location map red" },
-      { emoji: "📌", keywords: "pushpin location note" },
-      { emoji: "🗓️", keywords: "calendar date schedule" },
-      { emoji: "🕰️", keywords: "mantel clock time vintage" },
-      { emoji: "⏰", keywords: "alarm clock time wake up" },
-      { emoji: "💌", keywords: "love letter envelope message" },
-    ],
-  },
-];
+interface EmojiMartData {
+  categories: { id: string; emojis: string[] }[];
+  emojis: Record<string, EmojiMartEmoji>;
+}
 
-const ALL_EMOJI_ENTRIES = EMOJI_CATEGORIES.flatMap((c) => c.entries);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const emojiMartData = (require("@emoji-mart/data") as { default: EmojiMartData }).default;
+
+const CATEGORY_LABELS: Record<string, string> = {
+  people: "Smileys & People",
+  nature: "Animals & Nature",
+  foods: "Food & Drink",
+  activity: "Activity",
+  places: "Travel & Places",
+  objects: "Objects",
+  symbols: "Symbols",
+  flags: "Flags",
+};
+
+// Pre-build a flat list for search.
+const ALL_EMOJIS: { native: string; name: string; keywords: string[] }[] = Object.values(
+  emojiMartData.emojis,
+).map((e) => ({ native: e.skins[0].native, name: e.name.toLowerCase(), keywords: e.keywords }));
 
 function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -1196,20 +955,29 @@ function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
     if (open) requestAnimationFrame(() => searchRef.current?.focus());
   }, [open]);
 
-  const filtered = query.trim()
-    ? ALL_EMOJI_ENTRIES.filter((e) =>
-        e.keywords.includes(query.toLowerCase()) || e.emoji === query,
-      )
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? ALL_EMOJIS.filter((e) => e.name.includes(q) || e.keywords.some((k) => k.includes(q)))
     : null;
+
+  function EmojiButton({ native, title }: { native: string; title: string }) {
+    return (
+      <button
+        type="button"
+        onClick={() => { onSelect(native); setOpen(false); setQuery(""); }}
+        title={title}
+        className="flex h-7 w-7 items-center justify-center rounded text-base hover:bg-stone-100"
+      >
+        {native}
+      </button>
+    );
+  }
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => {
-          setOpen((o) => !o);
-          if (open) setQuery("");
-        }}
+        onClick={() => { setOpen((o) => !o); if (open) setQuery(""); }}
         className="rounded p-1 text-base leading-none text-stone-400 hover:bg-stone-100 hover:text-stone-600"
         aria-label="Insert emoji"
         title="Insert emoji"
@@ -1218,7 +986,7 @@ function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
       </button>
       {open ? (
         <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-stone-200 bg-white shadow-lg">
-          <div className="p-2 border-b border-stone-100">
+          <div className="border-b border-stone-100 p-2">
             <input
               ref={searchRef}
               type="text"
@@ -1228,41 +996,28 @@ function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
               className="w-full rounded-md border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm outline-none ring-emerald-700 focus:ring-2"
             />
           </div>
-          <div className="max-h-64 overflow-y-auto p-2">
+          <div className="max-h-72 overflow-y-auto p-2">
             {filtered ? (
               filtered.length > 0 ? (
                 <div className="grid grid-cols-10 gap-0.5">
-                  {filtered.map((entry) => (
-                    <button
-                      key={entry.emoji}
-                      type="button"
-                      onClick={() => { onSelect(entry.emoji); setOpen(false); setQuery(""); }}
-                      title={entry.keywords.split(" ")[0]}
-                      className="flex h-7 w-7 items-center justify-center rounded text-base hover:bg-stone-100"
-                    >
-                      {entry.emoji}
-                    </button>
-                  ))}
+                  {filtered.map((e) => <EmojiButton key={e.native} native={e.native} title={e.name} />)}
                 </div>
               ) : (
                 <p className="py-4 text-center text-xs text-stone-400">No emojis found</p>
               )
             ) : (
-              EMOJI_CATEGORIES.map((cat) => (
-                <div key={cat.label} className="mb-3">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400">{cat.label}</p>
+              emojiMartData.categories.map((cat) => (
+                <div key={cat.id} className="mb-3">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400">
+                    {CATEGORY_LABELS[cat.id] ?? cat.id}
+                  </p>
                   <div className="grid grid-cols-10 gap-0.5">
-                    {cat.entries.map((entry) => (
-                      <button
-                        key={entry.emoji}
-                        type="button"
-                        onClick={() => { onSelect(entry.emoji); setOpen(false); setQuery(""); }}
-                        title={entry.keywords.split(" ")[0]}
-                        className="flex h-7 w-7 items-center justify-center rounded text-base hover:bg-stone-100"
-                      >
-                        {entry.emoji}
-                      </button>
-                    ))}
+                    {cat.emojis.map((id) => {
+                      const e = emojiMartData.emojis[id];
+                      if (!e) return null;
+                      const native = e.skins[0].native;
+                      return <EmojiButton key={id} native={native} title={e.name} />;
+                    })}
                   </div>
                 </div>
               ))
