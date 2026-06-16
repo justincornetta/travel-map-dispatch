@@ -74,9 +74,13 @@ export async function POST(request: Request) {
     cover_photo_id: input.cover_photo_id ?? null,
   };
 
+  // For a brand-new city, upsert on the unique slug instead of a blind insert.
+  // This makes Save idempotent: if a previous save created the stop row but died
+  // before finishing (e.g. flaky connection dropped the photo uploads), re-saving
+  // updates that same row instead of throwing a duplicate-slug error.
   const result = input.id
     ? await supabase.from("stops").update(payload).eq("id", input.id).select("id, slug").single()
-    : await supabase.from("stops").insert(payload).select("id, slug").single();
+    : await supabase.from("stops").upsert(payload, { onConflict: "slug" }).select("id, slug").single();
 
   if (result.error) {
     return NextResponse.json({ error: result.error.message }, { status: 500 });

@@ -111,6 +111,11 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     })),
   );
 
+  // Server id of the stop once it exists, even if a later save step (photos)
+  // failed. Lets a reload of a new-city draft resume the same row instead of
+  // inserting a duplicate. Seeded from the prop for existing cities.
+  const createdStopId = useRef<string | null>(stop?.id ?? null);
+
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -138,6 +143,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       const raw = localStorage.getItem(autosaveKey);
       if (!raw) return;
       const saved = JSON.parse(raw) as {
+        stopId?: string | null;
         citySlug?: string;
         cityName?: string;
         cityCountry?: string;
@@ -147,8 +153,11 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         arrivalDate?: string;
         departureDate?: string;
         teaser?: string;
-        posts?: { key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
+        posts?: { id?: string; key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
       };
+      // Resume the same DB row (set on a previous partial save) so re-saving
+      // updates it instead of inserting a duplicate.
+      if (saved.stopId) createdStopId.current = saved.stopId;
       setCitySlug(saved.citySlug ?? "");
       setCityName(saved.cityName ?? "");
       setCityCountry(saved.cityCountry ?? "");
@@ -161,7 +170,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       if (Array.isArray(saved.posts) && saved.posts.length > 0) {
         setPosts(
           saved.posts.map((p) => ({
-            key: p.key ?? makeKey(),
+            id: p.id,
+            key: p.id ?? p.key ?? makeKey(),
             happenedAt: p.happenedAt ?? nowLocalDatetime(),
             title: p.title ?? "",
             body: p.body ?? "",
@@ -189,6 +199,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       localStorage.setItem(
         autosaveKey,
         JSON.stringify({
+          stopId: createdStopId.current,
           citySlug,
           cityName,
           cityCountry,
@@ -199,6 +210,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           departureDate,
           teaser,
           posts: posts.map((p) => ({
+            id: p.id,
             key: p.key,
             happenedAt: p.happenedAt,
             title: p.title,
@@ -432,7 +444,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: stop?.id,
+          id: stop?.id ?? createdStopId.current ?? undefined,
           slug: citySlug,
           city: cityName,
           country: cityCountry,
@@ -450,6 +462,9 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         throw new Error(err.error || "Failed to save city.");
       }
       const cityData = (await cityRes.json()) as { id: string; slug: string };
+      // Remember the row id so a reload (or retry after a failed photo upload)
+      // resumes this same stop instead of creating a duplicate.
+      createdStopId.current = cityData.id;
 
       // 2) For each post: upsert, then upload pending photos, then register them.
       //    The array index becomes sort_order so manual reordering persists.
