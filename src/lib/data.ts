@@ -18,6 +18,7 @@ type PostRow = {
   stop_id: string;
   happened_at: string;
   created_at?: string | null;
+  sort_order?: number | null;
   title: string | null;
   body: string | null;
   photos?: PhotoRow[];
@@ -72,6 +73,7 @@ function mapPost(row: PostRow, fallbackAlt: string): Post {
     stopId: row.stop_id,
     happenedAt: row.happened_at,
     createdAt: row.created_at ?? row.happened_at,
+    sortOrder: row.sort_order ?? 0,
     title: row.title,
     body: row.body ?? "",
     photos,
@@ -81,7 +83,12 @@ function mapPost(row: PostRow, fallbackAlt: string): Post {
 function mapStop(row: StopRow): Stop {
   const posts = (row.posts ?? [])
     .slice()
-    .sort((a, b) => new Date(a.happened_at).getTime() - new Date(b.happened_at).getTime())
+    // Manual sort_order is the source of truth; fall back to happened_at for ties.
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+        new Date(a.happened_at).getTime() - new Date(b.happened_at).getTime(),
+    )
     .map((p) => mapPost(p, row.city));
 
   const flatPhotos = posts.flatMap((p) => p.photos);

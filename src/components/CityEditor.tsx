@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  ChevronUp,
   Film,
+  GripVertical,
   ImagePlus,
   Loader2,
   Plus,
@@ -108,6 +111,11 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     })),
   );
 
+  // Server id of the stop once it exists, even if a later save step (photos)
+  // failed. Lets a reload of a new-city draft resume the same row instead of
+  // inserting a duplicate. Seeded from the prop for existing cities.
+  const createdStopId = useRef<string | null>(stop?.id ?? null);
+
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -135,6 +143,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       const raw = localStorage.getItem(autosaveKey);
       if (!raw) return;
       const saved = JSON.parse(raw) as {
+        stopId?: string | null;
         citySlug?: string;
         cityName?: string;
         cityCountry?: string;
@@ -144,8 +153,11 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         arrivalDate?: string;
         departureDate?: string;
         teaser?: string;
-        posts?: { key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
+        posts?: { id?: string; key?: string; happenedAt?: string; title?: string; body?: string; timeEdited?: boolean }[];
       };
+      // Resume the same DB row (set on a previous partial save) so re-saving
+      // updates it instead of inserting a duplicate.
+      if (saved.stopId) createdStopId.current = saved.stopId;
       setCitySlug(saved.citySlug ?? "");
       setCityName(saved.cityName ?? "");
       setCityCountry(saved.cityCountry ?? "");
@@ -158,7 +170,8 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       if (Array.isArray(saved.posts) && saved.posts.length > 0) {
         setPosts(
           saved.posts.map((p) => ({
-            key: p.key ?? makeKey(),
+            id: p.id,
+            key: p.id ?? p.key ?? makeKey(),
             happenedAt: p.happenedAt ?? nowLocalDatetime(),
             title: p.title ?? "",
             body: p.body ?? "",
@@ -186,6 +199,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       localStorage.setItem(
         autosaveKey,
         JSON.stringify({
+          stopId: createdStopId.current,
           citySlug,
           cityName,
           cityCountry,
@@ -196,6 +210,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
           departureDate,
           teaser,
           posts: posts.map((p) => ({
+            id: p.id,
             key: p.key,
             happenedAt: p.happenedAt,
             title: p.title,
@@ -385,6 +400,19 @@ export function CityEditor({ stop }: { stop?: Stop }) {
     );
   }
 
+  // Drag-to-reorder (and up/down) for the posts themselves. The new array order
+  // is persisted as each post's sort_order on save; the public feed follows it.
+  const dragPost = useRef<number | null>(null);
+  function reorderPost(from: number, to: number) {
+    if (from === to || to < 0 || to >= posts.length) return;
+    setPosts((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+  }
+
   async function saveAll() {
     setMessage(null);
     if (!citySlug || !cityName) {
@@ -416,7 +444,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: stop?.id,
+          id: stop?.id ?? createdStopId.current ?? undefined,
           slug: citySlug,
           city: cityName,
           country: cityCountry,
@@ -434,9 +462,13 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         throw new Error(err.error || "Failed to save city.");
       }
       const cityData = (await cityRes.json()) as { id: string; slug: string };
+      // Remember the row id so a reload (or retry after a failed photo upload)
+      // resumes this same stop instead of creating a duplicate.
+      createdStopId.current = cityData.id;
 
       // 2) For each post: upsert, then upload pending photos, then register them.
-      for (const post of posts) {
+      //    The array index becomes sort_order so manual reordering persists.
+      for (const [idx, post] of posts.entries()) {
         const postRes = await fetch("/api/admin/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -444,6 +476,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
             id: post.id,
             stop_id: cityData.id,
             happened_at: localDatetimeToIso(post.happenedAt || nowLocalDatetime()),
+            sort_order: idx,
             title: post.title || null,
             body: post.body,
           }),
@@ -704,9 +737,58 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         ) : null}
         <div className="mt-4 space-y-4">
           {posts.map((post, idx) => (
-            <div key={post.key} className="rounded-md border border-stone-300 bg-white p-4">
+            <div
+              key={post.key}
+              onDragOver={(e) => {
+                if (dragPost.current !== null) e.preventDefault();
+              }}
+              onDrop={() => {
+                const from = dragPost.current;
+                dragPost.current = null;
+                if (from !== null) reorderPost(from, idx);
+              }}
+              className="rounded-md border border-stone-300 bg-white p-4"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-stone-600">Post #{idx + 1}</span>
+                <div className="flex items-center gap-1.5">
+                  {posts.length > 1 ? (
+                    <span
+                      draggable
+                      onDragStart={() => (dragPost.current = idx)}
+                      onDragEnd={() => (dragPost.current = null)}
+                      className="cursor-grab text-stone-400 hover:text-stone-600 active:cursor-grabbing"
+                      title="Drag to reorder this post"
+                      aria-hidden
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </span>
+                  ) : null}
+                  <span className="text-sm font-semibold text-stone-600">Post #{idx + 1}</span>
+                  {posts.length > 1 ? (
+                    <span className="ml-1 inline-flex">
+                      <button
+                        type="button"
+                        onClick={() => reorderPost(idx, idx - 1)}
+                        disabled={idx === 0}
+                        className="rounded p-1 text-stone-500 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move post up"
+                        title="Move up"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => reorderPost(idx, idx + 1)}
+                        disabled={idx === posts.length - 1}
+                        className="rounded p-1 text-stone-500 hover:bg-stone-100 disabled:opacity-30 disabled:hover:bg-transparent"
+                        aria-label="Move post down"
+                        title="Move down"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   onClick={() => removePost(post)}
@@ -914,7 +996,6 @@ interface EmojiMartData {
   emojis: Record<string, EmojiMartEmoji>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const emojiMartData = (require("@emoji-mart/data") as { default: EmojiMartData }).default;
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -1241,7 +1322,7 @@ function PhotoUploader({
         <ImagePlus className="h-6 w-6 text-stone-400" aria-hidden />
         <span className="mt-1 text-sm font-medium text-stone-600">Drag photos or videos here, or tap to choose</span>
         <span className="text-xs text-stone-400">
-          Photos & short clips (≤60s, ≤100MB) · iOS Photos & HEIC welcome
+          Photos & short clips (≤60s, ≤50MB) · iOS Photos & HEIC welcome
         </span>
         <input
           ref={inputRef}

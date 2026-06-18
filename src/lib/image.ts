@@ -7,9 +7,10 @@
 const HEIC_RE = /\.(heic|heif)$/i;
 const REENCODE_EXT_RE = /\.(heic|heif|png|webp|tiff?)$/i;
 
-// Free-tier-friendly caps for native video uploads. Bigger/longer clips burn
-// Supabase storage + egress fast, so reject them client-side with a clear message.
-export const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100 MB
+// Free-tier-friendly caps for native video uploads. Supabase's free plan
+// rejects single uploads over ~50 MB, so cap below that and reject oversized
+// clips client-side with a clear message instead of letting the upload fail.
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB (Supabase free-plan per-file limit)
 export const MAX_VIDEO_SECONDS = 60;
 
 const VIDEO_EXT_RE = /\.(mov|mp4|m4v|webm|avi|mkv|3gp|hevc)$/i;
@@ -28,7 +29,12 @@ type VideoCheck = { ok: true } | { ok: false; reason: string };
  */
 export async function validateVideo(file: File): Promise<VideoCheck> {
   if (file.size > MAX_VIDEO_BYTES) {
-    return { ok: false, reason: `Video is too large (max ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} MB).` };
+    return {
+      ok: false,
+      reason: `Video is too large (${Math.round(file.size / 1024 / 1024)} MB) — max ${Math.round(
+        MAX_VIDEO_BYTES / 1024 / 1024,
+      )} MB. Export a smaller version (e.g. QuickTime → Export As → 720p) and try again.`,
+    };
   }
   const duration = await readVideoDuration(file).catch(() => null);
   if (duration != null && duration > MAX_VIDEO_SECONDS + 0.5) {

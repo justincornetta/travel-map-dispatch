@@ -17,8 +17,9 @@ export type Photo = {
 export type Post = {
   id: string;
   stopId: string;
-  happenedAt: string; // ISO timestamp; drives chronological order + hour-bucket dividers
+  happenedAt: string; // ISO timestamp; drives hour-bucket dividers + "Day N" labels
   createdAt: string; // ISO timestamp of when the row was created (used for "new posts since you last read")
+  sortOrder: number; // manual display order within the city (admin drag / up-down)
   title: string | null;
   body: string;
   photos: Photo[];

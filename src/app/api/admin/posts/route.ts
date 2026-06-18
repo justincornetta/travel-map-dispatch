@@ -11,6 +11,7 @@ const upsertSchema = z.object({
   id: z.string().uuid().optional(),
   stop_id: z.string().uuid(),
   happened_at: z.string().datetime({ offset: true }),
+  sort_order: z.number().int().min(0).optional(),
   title: z.string().nullable().optional(),
   body: z.string(),
 });
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     happened_at: input.happened_at,
     title: input.title ?? null,
     body: input.body,
+    ...(input.sort_order != null ? { sort_order: input.sort_order } : {}),
   };
 
   const result = input.id
