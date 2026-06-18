@@ -463,8 +463,22 @@ export function CityEditor({ stop }: { stop?: Stop }) {
       }
       const cityData = (await cityRes.json()) as { id: string; slug: string };
       // Remember the row id so a reload (or retry after a failed photo upload)
-      // resumes this same stop instead of creating a duplicate.
+      // resumes this same stop instead of creating a duplicate. Persist it to the
+      // draft *synchronously* — the deps-based autosave effect won't fire if the
+      // rest of this save fails (e.g. posts/photos error before any state change),
+      // and without the id a reloaded new-city draft would mint another stop
+      // (london-2, london-3, …) on the next save.
       createdStopId.current = cityData.id;
+      if (autosaveKey) {
+        try {
+          const raw = localStorage.getItem(autosaveKey);
+          const blob = raw ? JSON.parse(raw) : {};
+          blob.stopId = cityData.id;
+          localStorage.setItem(autosaveKey, JSON.stringify(blob));
+        } catch {
+          /* private mode / quota — non-fatal */
+        }
+      }
 
       // 2) For each post: upsert, then upload pending photos, then register them.
       //    The array index becomes sort_order so manual reordering persists.
@@ -996,7 +1010,10 @@ interface EmojiMartData {
   emojis: Record<string, EmojiMartEmoji>;
 }
 
-const emojiMartData = (require("@emoji-mart/data") as { default: EmojiMartData }).default;
+// @emoji-mart/data's main is a JSON file, so depending on the bundler the
+// require may return the data object directly or under `.default`. Handle both.
+const emojiMartRaw = require("@emoji-mart/data") as EmojiMartData & { default?: EmojiMartData };
+const emojiMartData: EmojiMartData = emojiMartRaw.default ?? emojiMartRaw;
 
 const CATEGORY_LABELS: Record<string, string> = {
   people: "Smileys & People",
@@ -1011,8 +1028,14 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // Pre-build a flat list for search.
 const ALL_EMOJIS: { native: string; name: string; keywords: string[] }[] = Object.values(
-  emojiMartData.emojis,
-).map((e) => ({ native: e.skins[0].native, name: e.name.toLowerCase(), keywords: e.keywords }));
+  emojiMartData.emojis ?? {},
+)
+  .map((e) => ({
+    native: e?.skins?.[0]?.native ?? "",
+    name: (e?.name ?? "").toLowerCase(),
+    keywords: e?.keywords ?? [],
+  }))
+  .filter((e) => e.native);
 
 function EmojiPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
   const [open, setOpen] = useState(false);
