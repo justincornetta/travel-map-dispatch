@@ -996,7 +996,6 @@ interface EmojiMartData {
   emojis: Record<string, EmojiMartEmoji>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const emojiMartData = (require("@emoji-mart/data") as { default: EmojiMartData }).default;
 
 const CATEGORY_LABELS: Record<string, string> = {
