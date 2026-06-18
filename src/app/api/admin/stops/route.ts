@@ -36,6 +36,22 @@ function emptyToNull(value?: string | null) {
   return value && value.length > 0 ? value : null;
 }
 
+type AdminClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+
+// Find a slug not already used by another stop, suffixing -2, -3, … on repeats
+// so the same city can be visited more than once (london, london-2, …).
+async function nextFreeSlug(supabase: AdminClient, base: string): Promise<string> {
+  // Pull every slug starting with the base (covers "london", "london-2", and
+  // harmless false positives like "londonderry" that just get skipped).
+  const { data } = await supabase.from("stops").select("slug").like("slug", `${base}%`);
+  const taken = new Set((data ?? []).map((r) => r.slug as string));
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 1000; i++) {
+    if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+  return `${base}-${Date.now()}`;
+}
+
 export async function POST(request: Request) {
   const { response } = await requireAdminApi();
   if (response) return response;
@@ -61,8 +77,9 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
 
+  // The slug is set once at creation and never changed on update, so editing an
+  // existing city can't collide with another city's slug.
   const payload = {
-    slug: input.slug,
     city: input.city,
     country: input.country,
     latitude: input.latitude,
@@ -74,13 +91,19 @@ export async function POST(request: Request) {
     cover_photo_id: input.cover_photo_id ?? null,
   };
 
-  // For a brand-new city, upsert on the unique slug instead of a blind insert.
-  // This makes Save idempotent: if a previous save created the stop row but died
-  // before finishing (e.g. flaky connection dropped the photo uploads), re-saving
-  // updates that same row instead of throwing a duplicate-slug error.
-  const result = input.id
-    ? await supabase.from("stops").update(payload).eq("id", input.id).select("id, slug").single()
-    : await supabase.from("stops").upsert(payload, { onConflict: "slug" }).select("id, slug").single();
+  let result;
+  if (input.id) {
+    // Existing city: update by id (interrupted-save recovery relies on the
+    // client passing the known id, so a re-save updates rather than duplicates).
+    result = await supabase.from("stops").update(payload).eq("id", input.id).select("id, slug").single();
+  } else {
+    // New city: pick a slug that isn't taken so revisiting a place (e.g. a
+    // second London) becomes its own stop (london, london-2, …) instead of
+    // colliding on the unique slug. We never upsert here — that would silently
+    // overwrite an existing city.
+    const slug = await nextFreeSlug(supabase, input.slug);
+    result = await supabase.from("stops").insert({ ...payload, slug }).select("id, slug").single();
+  }
 
   if (result.error) {
     return NextResponse.json({ error: result.error.message }, { status: 500 });

@@ -1323,7 +1323,7 @@ function PhotoUploader({
         <ImagePlus className="h-6 w-6 text-stone-400" aria-hidden />
         <span className="mt-1 text-sm font-medium text-stone-600">Drag photos or videos here, or tap to choose</span>
         <span className="text-xs text-stone-400">
-          Photos & short clips (≤60s, ≤100MB) · iOS Photos & HEIC welcome
+          Photos & short clips (≤60s, ≤50MB) · iOS Photos & HEIC welcome
         </span>
         <input
           ref={inputRef}
