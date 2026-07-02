@@ -17,20 +17,30 @@ type Item =
 
 type NeighborLink = { slug: string; city: string } | null;
 
-function startOfDayMs(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+// Posts are stored as wall-clock UTC (no timezone offset applied on save),
+// so we always read UTC fields for display — every viewer sees the same time
+// the blogger entered, regardless of the viewer's local timezone.
+
+function startOfDayUtcMs(d: Date) {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
 // "Day 3 — Sunday, May 24" using a whole-trip day count from tripStartIso.
 function dayLabel(iso: string, tripStartIso: string | null) {
   const d = new Date(iso);
-  const date = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const date = new Intl.DateTimeFormat("en", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(d);
   if (!tripStartIso) return date;
-  const n = Math.floor((startOfDayMs(d) - startOfDayMs(new Date(tripStartIso))) / 86_400_000) + 1;
+  const n =
+    Math.floor((startOfDayUtcMs(d) - startOfDayUtcMs(new Date(tripStartIso))) / 86_400_000) + 1;
   return n >= 1 ? `Day ${n} — ${date}` : date;
 }
 
-// Format an hour (0–23) as a 222-style label: "12 AM", "2 AM", "12 PM", "9 PM".
+// Format an hour (0–23) as a label: "12 AM", "2 AM", "12 PM", "9 PM".
 function hourLabel(hour: number) {
   const h = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
   const ampm = hour < 12 ? "AM" : "PM";
@@ -39,7 +49,7 @@ function hourLabel(hour: number) {
 
 function shortDateRange(arrival: string | null, departure: string | null) {
   const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    new Date(iso).toLocaleDateString("en", { month: "short", day: "numeric", timeZone: "UTC" });
   if (arrival && departure) return `${fmt(arrival)} – ${fmt(departure)}`;
   if (arrival) return fmt(arrival);
   if (departure) return fmt(departure);
@@ -48,7 +58,11 @@ function shortDateRange(arrival: string | null, departure: string | null) {
 
 function isoToHM(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const h = d.getUTCHours();
+  const m = d.getUTCMinutes();
+  const ampm = h < 12 ? "AM" : "PM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 
 export function CityFeed({
@@ -71,13 +85,13 @@ export function CityFeed({
     let lastHour = -1;
     for (const post of stop.posts) {
       const d = new Date(post.happenedAt);
-      const dayKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const dayKey = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
       if (dayKey !== lastDay) {
         out.push({ kind: "day", iso: post.happenedAt });
         lastDay = dayKey;
         lastHour = -1; // restart hour grouping under the new day
       }
-      const hour = d.getHours();
+      const hour = d.getUTCHours();
       if (hour !== lastHour) {
         out.push({ kind: "divider", hour });
         lastHour = hour;
