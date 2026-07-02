@@ -65,19 +65,35 @@ type PostDraft = {
 
 function nowLocalDatetime() {
   const d = new Date();
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 16);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
 }
 
+// Extract the UTC wall-clock components from a stored ISO string so the
+// editor always shows the time as originally entered, not shifted to the
+// viewer's local timezone.
 function toLocalDatetime(iso: string) {
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 16);
+  return iso.slice(0, 16);
 }
 
 function localDatetimeToIso(local: string) {
-  // datetime-local has no timezone; treat as local then convert to ISO.
-  return new Date(local).toISOString();
+  // Treat the entered datetime-local as a wall-clock UTC time so that every
+  // viewer (and the poster in any timezone) sees the same time.
+  return `${local}:00.000Z`;
+}
+
+// Format a Date using its LOCAL time components for the datetime-local input.
+// Used by EXIF autofill: readPhotoTakenAt returns a Date in local time, so we
+// read its local fields (not UTC) to get the camera's wall-clock time.
+function dateToDatetimeLocal(d: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
 }
 
 function makeKey() {
@@ -318,7 +334,7 @@ export function CityEditor({ stop }: { stop?: Stop }) {
         setPosts((prev) =>
           prev.map((p) =>
             p.key === post.key && !p.timeEdited
-              ? { ...p, happenedAt: toLocalDatetime(earliest.toISOString()) }
+              ? { ...p, happenedAt: dateToDatetimeLocal(earliest) }
               : p,
           ),
         );
